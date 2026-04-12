@@ -18,8 +18,9 @@ export default function Header({ inputs, dispatch, onAnalyze, analyzing }: Props
           <div className="w-6 h-6 rounded bg-accent-blue flex items-center justify-center">
             <span className="text-white text-xs font-bold">S</span>
           </div>
-          <h1 className="text-sm font-bold text-text-foreground hidden sm:block">
-            STR Deal Analyzer
+          <h1 className="text-sm font-bold text-text-foreground">
+            <span className="hidden sm:inline">STR Deal Analyzer</span>
+            <span className="sm:hidden">STR Analyzer</span>
           </h1>
         </div>
       </div>
@@ -31,7 +32,7 @@ export default function Header({ inputs, dispatch, onAnalyze, analyzing }: Props
           type="button"
           onClick={onAnalyze}
           disabled={analyzing}
-          className="h-8 px-4 text-xs font-medium rounded-md bg-accent-blue text-white hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="hidden sm:flex h-8 px-4 text-xs font-medium rounded-md bg-accent-blue text-white hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {analyzing ? 'Analyzing...' : 'Run AI Analysis'}
         </button>

@@ -20,7 +20,7 @@ export default function ProjectionTable({ metrics, appreciationRate, taxEnabled,
 
   return (
     <div className="rounded-lg border border-border-default bg-bg-surface p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
         <h3 className="text-sm font-semibold text-text-foreground">5-Year Projection</h3>
         <div className="flex items-center gap-2">
           <label className="text-[10px] text-text-muted">Appreciation:</label>
@@ -37,7 +37,8 @@ export default function ProjectionTable({ metrics, appreciationRate, taxEnabled,
         </div>
       </div>
 
-      <div className="overflow-x-auto -mx-4 px-4">
+      <div className="relative">
+      <div className="overflow-x-auto -mx-4 px-4 scroll-smooth">
         <table className="w-full text-[10px] border-collapse min-w-[550px]">
           <thead>
             <tr className="border-b border-border-default">
@@ -74,6 +75,8 @@ export default function ProjectionTable({ metrics, appreciationRate, taxEnabled,
             <Row label="Cumulative Cash Flow" values={projection.map((p) => p.cumulativeCashFlow)} bold highlight />
           </tbody>
         </table>
+      </div>
+      <div className="absolute right-0 top-0 bottom-0 w-6 pointer-events-none bg-gradient-to-l from-bg-surface to-transparent lg:hidden" />
       </div>
 
       <div className="flex gap-3 mt-4 pt-3 border-t border-border-default">

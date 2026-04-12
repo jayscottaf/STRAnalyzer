@@ -25,7 +25,8 @@ export default function SensitivityGrid({ grid, baseOccupancy, baseAdr }: Props)
       <h3 className="text-sm font-semibold text-text-foreground mb-1">Sensitivity Analysis</h3>
       <p className="text-[10px] text-text-muted mb-3">Monthly cash flow by occupancy and ADR</p>
 
-      <div className="overflow-x-auto -mx-4 px-4">
+      <div className="relative">
+      <div className="overflow-x-auto -mx-4 px-4 scroll-smooth">
         <table className="w-full text-[10px] border-collapse min-w-[600px]">
           <thead>
             <tr>
@@ -62,6 +63,8 @@ export default function SensitivityGrid({ grid, baseOccupancy, baseAdr }: Props)
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="absolute right-0 top-0 bottom-0 w-6 pointer-events-none bg-gradient-to-l from-bg-surface to-transparent lg:hidden" />
       </div>
 
       <div className="flex flex-wrap gap-3 mt-3 text-[10px] text-text-muted">
