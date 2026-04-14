@@ -22,21 +22,35 @@ function getColor(value: number, thresholds: { good: number; marginal: number },
 
 export default function MetricsGrid({ metrics }: Props) {
   const cocSubtitle = metrics.trueCocReturn !== null
-    ? `True CoC (w/ tax): ${formatPercent(metrics.trueCocReturn)}`
-    : undefined;
+    ? `w/ tax: ${formatPercent(metrics.trueCocReturn)}`
+    : 'pre-tax return';
 
-  const dscrSubtitle = metrics.dscr >= 1.2
+  const dscrSubtitle = !isFinite(metrics.dscr)
+    ? 'Cash purchase'
+    : metrics.dscr >= 1.2
     ? 'Lender eligible'
-    : metrics.dscr < 1.0 && isFinite(metrics.dscr)
-    ? 'Negative coverage'
-    : undefined;
+    : metrics.dscr >= 1.0
+    ? 'Marginal coverage'
+    : 'Negative coverage';
+
+  const cashFlowSubtitle = `Annual: ${formatCurrency(metrics.annualCashFlow)}`;
+
+  const capRateSubtitle = 'Unlevered return';
+
+  const noiSubtitle = 'Before debt service';
+
+  const breakEvenMargin = metrics.breakEvenOccupancy;
+  const breakEvenSubtitle = breakEvenMargin < 100
+    ? `${formatPercent(100 - breakEvenMargin)} safety margin`
+    : 'Not profitable';
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 auto-rows-fr">
       <MetricCard
         label="Monthly Cash Flow"
         value={formatCurrency(metrics.monthlyCashFlow)}
-        tooltip={`Annual: ${formatCurrency(metrics.annualCashFlow)}`}
+        subtitle={cashFlowSubtitle}
+        tooltip="Net cash flow per month after all expenses and debt service."
         color={getColor(metrics.monthlyCashFlow, THRESHOLDS.monthlyCashFlow)}
         large
       />
@@ -51,8 +65,10 @@ export default function MetricsGrid({ metrics }: Props) {
       <MetricCard
         label="Cap Rate"
         value={formatPercent(metrics.capRate)}
+        subtitle={capRateSubtitle}
         tooltip="NOI divided by purchase price. Measures unlevered return. 6-10% is typical for STR."
         color={getColor(metrics.capRate, THRESHOLDS.cap)}
+        large
       />
       <MetricCard
         label="DSCR"
@@ -60,10 +76,12 @@ export default function MetricsGrid({ metrics }: Props) {
         subtitle={dscrSubtitle}
         tooltip="NOI divided by annual debt service. Lenders require 1.20+ for DSCR loans."
         color={isFinite(metrics.dscr) ? getColor(metrics.dscr, THRESHOLDS.dscr) : 'blue'}
+        large
       />
       <MetricCard
         label="NOI"
         value={formatCurrency(metrics.noi)}
+        subtitle={noiSubtitle}
         tooltip="Net Operating Income: EGI minus operating expenses (before debt service)."
         color="neutral"
       />
@@ -77,6 +95,7 @@ export default function MetricsGrid({ metrics }: Props) {
       <MetricCard
         label="Break-Even Occupancy"
         value={formatPercent(metrics.breakEvenOccupancy)}
+        subtitle={breakEvenSubtitle}
         tooltip="Minimum occupancy to cover all expenses + debt service. Lower is safer."
         color={getColor(metrics.breakEvenOccupancy, THRESHOLDS.breakEvenOccupancy, true)}
       />
