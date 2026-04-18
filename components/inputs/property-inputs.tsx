@@ -3,6 +3,7 @@
 import type { PropertyInputs as PropertyInputsType } from '@/lib/types';
 import { PROPERTY_TYPES } from '@/lib/constants';
 import InputField from './input-field';
+import ListingExtractor from './listing-extractor';
 
 interface Props {
   values: PropertyInputsType;
@@ -12,6 +13,8 @@ interface Props {
 export default function PropertyInputs({ values, onChange }: Props) {
   return (
     <div>
+      <ListingExtractor onApply={onChange} />
+
       <InputField
         label="Market / City"
         type="text"
