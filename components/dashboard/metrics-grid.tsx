@@ -52,6 +52,7 @@ export default function MetricsGrid({ metrics }: Props) {
         subtitle={cashFlowSubtitle}
         tooltip="Net cash flow per month after all expenses and debt service."
         color={getColor(metrics.monthlyCashFlow, THRESHOLDS.monthlyCashFlow)}
+        benchmark="vs $500+ target"
         large
       />
       <MetricCard
@@ -60,6 +61,7 @@ export default function MetricsGrid({ metrics }: Props) {
         subtitle={cocSubtitle}
         tooltip="Annual cash flow divided by total cash invested. 8-12% is strong for STR."
         color={getColor(metrics.cocReturn, THRESHOLDS.coc)}
+        benchmark="STR avg: 8%"
         large
       />
       <MetricCard
@@ -68,6 +70,7 @@ export default function MetricsGrid({ metrics }: Props) {
         subtitle={capRateSubtitle}
         tooltip="NOI divided by purchase price. Measures unlevered return. 6-10% is typical for STR."
         color={getColor(metrics.capRate, THRESHOLDS.cap)}
+        benchmark="STR avg: 6-8%"
         large
       />
       <MetricCard
@@ -76,6 +79,7 @@ export default function MetricsGrid({ metrics }: Props) {
         subtitle={dscrSubtitle}
         tooltip="NOI divided by annual debt service. Lenders require 1.20+ for DSCR loans."
         color={isFinite(metrics.dscr) ? getColor(metrics.dscr, THRESHOLDS.dscr) : 'blue'}
+        benchmark="Lender min: 1.20"
         large
       />
       <MetricCard

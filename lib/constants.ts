@@ -155,4 +155,5 @@ export const DEFAULT_INPUTS: DealInputs = {
     filingStatus: 'mfj',
   },
   appreciationRate: 3,
+  notes: '',
 };

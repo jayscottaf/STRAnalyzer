@@ -9,6 +9,7 @@ interface Props {
   tooltip?: string;
   color: 'green' | 'amber' | 'red' | 'blue' | 'neutral';
   large?: boolean;
+  benchmark?: string;
 }
 
 const colorClasses = {
@@ -19,11 +20,18 @@ const colorClasses = {
   neutral: 'text-text-foreground bg-bg-elevated border-border-default',
 };
 
-export default function MetricCard({ label, value, subtitle, tooltip, color, large }: Props) {
+export default function MetricCard({ label, value, subtitle, tooltip, color, large, benchmark }: Props) {
   const card = (
     <div className={`rounded-lg border p-3 ${colorClasses[color]} transition-all h-full flex flex-col`}>
-      <div className="text-[10px] font-medium uppercase tracking-wider opacity-70">
-        {label}
+      <div className="flex items-start justify-between gap-1">
+        <div className="text-[10px] font-medium uppercase tracking-wider opacity-70">
+          {label}
+        </div>
+        {benchmark && (
+          <div className="text-[9px] opacity-50 px-1.5 py-0.5 rounded-full bg-black/20 whitespace-nowrap shrink-0">
+            {benchmark}
+          </div>
+        )}
       </div>
       <div className={`font-bold metric-value flex-1 flex items-center ${large ? 'text-2xl' : 'text-xl'} py-1`}>
         {value}

@@ -22,6 +22,8 @@ function dealReducer(state: DealInputs, action: DealAction): DealInputs {
       return { ...state, tax: { ...state.tax, ...action.payload } };
     case 'UPDATE_APPRECIATION':
       return { ...state, appreciationRate: action.payload };
+    case 'UPDATE_NOTES':
+      return { ...state, notes: action.payload };
     case 'LOAD_ANALYSIS':
       return action.payload;
     case 'RESET_TO_DEFAULTS':

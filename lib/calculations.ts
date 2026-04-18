@@ -881,3 +881,101 @@ export function calculateAllMetrics(inputs: DealInputs): DealMetrics {
     amortizationSchedule: schedule,
   };
 }
+
+// ============================================================
+// Tornado Analysis — how much each input moves the CoC return
+// ============================================================
+
+export interface TornadoItem {
+  label: string;
+  lowValue: number;
+  highValue: number;
+  baselineDelta: number;
+  positiveIsHigh: boolean;
+}
+
+const TORNADO_VARIANCE = 0.10; // ±10%
+
+function cocFor(inputs: DealInputs): number {
+  return calculateAllMetrics(inputs).cocReturn;
+}
+
+export function calculateTornado(inputs: DealInputs): TornadoItem[] {
+  const baseline = cocFor(inputs);
+
+  function variant(mutator: (d: DealInputs) => DealInputs, mult: number): number {
+    const clone = structuredClone(inputs);
+    return cocFor(mutator(clone));
+  }
+
+  const items: TornadoItem[] = [];
+
+  // ADR
+  items.push({
+    label: 'Nightly Rate',
+    lowValue: variant((d) => { d.revenue.adr *= (1 - TORNADO_VARIANCE); return d; }, 1),
+    highValue: variant((d) => { d.revenue.adr *= (1 + TORNADO_VARIANCE); return d; }, 1),
+    baselineDelta: baseline,
+    positiveIsHigh: true,
+  });
+
+  // Occupancy
+  items.push({
+    label: 'Occupancy',
+    lowValue: variant((d) => { d.revenue.occupancyRate = Math.max(d.revenue.occupancyRate * (1 - TORNADO_VARIANCE), 1); return d; }, 1),
+    highValue: variant((d) => { d.revenue.occupancyRate = Math.min(d.revenue.occupancyRate * (1 + TORNADO_VARIANCE), 100); return d; }, 1),
+    baselineDelta: baseline,
+    positiveIsHigh: true,
+  });
+
+  // Purchase Price
+  items.push({
+    label: 'Purchase Price',
+    lowValue: variant((d) => { d.property.purchasePrice *= (1 - TORNADO_VARIANCE); return d; }, 1),
+    highValue: variant((d) => { d.property.purchasePrice *= (1 + TORNADO_VARIANCE); return d; }, 1),
+    baselineDelta: baseline,
+    positiveIsHigh: false, // lower price = higher CoC
+  });
+
+  // Interest Rate (if financed)
+  if (inputs.financing.loanType !== 'cash') {
+    items.push({
+      label: 'Interest Rate',
+      lowValue: variant((d) => { d.financing.interestRate = Math.max(d.financing.interestRate * (1 - TORNADO_VARIANCE), 0.1); return d; }, 1),
+      highValue: variant((d) => { d.financing.interestRate = d.financing.interestRate * (1 + TORNADO_VARIANCE); return d; }, 1),
+      baselineDelta: baseline,
+      positiveIsHigh: false, // lower rate = higher CoC
+    });
+  }
+
+  // Property Tax
+  items.push({
+    label: 'Property Tax',
+    lowValue: variant((d) => { d.expenses.propertyTaxRate = Math.max(d.expenses.propertyTaxRate * (1 - TORNADO_VARIANCE), 0); return d; }, 1),
+    highValue: variant((d) => { d.expenses.propertyTaxRate = d.expenses.propertyTaxRate * (1 + TORNADO_VARIANCE); return d; }, 1),
+    baselineDelta: baseline,
+    positiveIsHigh: false,
+  });
+
+  // Maintenance
+  items.push({
+    label: 'Maintenance %',
+    lowValue: variant((d) => { d.expenses.maintenanceReservePct = Math.max(d.expenses.maintenanceReservePct * (1 - TORNADO_VARIANCE), 0); return d; }, 1),
+    highValue: variant((d) => { d.expenses.maintenanceReservePct = d.expenses.maintenanceReservePct * (1 + TORNADO_VARIANCE); return d; }, 1),
+    baselineDelta: baseline,
+    positiveIsHigh: false,
+  });
+
+  // Insurance
+  items.push({
+    label: 'Insurance',
+    lowValue: variant((d) => { d.expenses.insuranceRate = Math.max(d.expenses.insuranceRate * (1 - TORNADO_VARIANCE), 0); return d; }, 1),
+    highValue: variant((d) => { d.expenses.insuranceRate = d.expenses.insuranceRate * (1 + TORNADO_VARIANCE); return d; }, 1),
+    baselineDelta: baseline,
+    positiveIsHigh: false,
+  });
+
+  // Sort by total range (biggest movers first)
+  items.sort((a, b) => Math.abs(b.highValue - b.lowValue) - Math.abs(a.highValue - a.lowValue));
+  return items;
+}

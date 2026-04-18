@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { AIAnalysis } from '@/lib/types';
 import { useDealInputs } from '@/lib/hooks/use-deal-inputs';
 import { useCalculations } from '@/lib/hooks/use-calculations';
@@ -16,6 +16,12 @@ import ProjectionTable from '@/components/dashboard/projection-table';
 import AIAnalysisPanel from '@/components/ai/ai-analysis-panel';
 import CashFlowChart from '@/components/dashboard/cash-flow-chart';
 import DealScore from '@/components/dashboard/deal-score';
+import TornadoChart from '@/components/dashboard/tornado-chart';
+import StickyKpiBar from '@/components/dashboard/sticky-kpi-bar';
+import OfferSolver from '@/components/dashboard/offer-solver';
+import CompareMode from '@/components/dashboard/compare-mode';
+import PdfExport from '@/components/dashboard/pdf-export';
+import { calculateTornado } from '@/lib/calculations';
 
 export default function HomePage() {
   const { inputs, dispatch, errors, hydrated } = useDealInputs();
@@ -27,6 +33,11 @@ export default function HomePage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiCooldown, setAiCooldown] = useState(false);
+
+  const tornadoData = useMemo(() => {
+    if (!metrics) return null;
+    return calculateTornado(inputs);
+  }, [inputs, metrics]);
 
   const runAnalysis = useCallback(async () => {
     if (!metrics || aiLoading || aiCooldown) return;
@@ -91,7 +102,10 @@ export default function HomePage() {
         />
 
         {/* Main Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4 lg:space-y-6 pb-24 lg:pb-6">
+        <main className="flex-1 overflow-y-auto relative">
+          <StickyKpiBar metrics={metrics} observeTargetId="main-kpi-grid" />
+
+          <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 pb-24 lg:pb-6">
           {/* Validation warnings */}
           {errors.length > 0 && (
             <div className="px-3 py-2 rounded-lg bg-accent-amber-bg border border-accent-amber/20 text-xs text-accent-amber">
@@ -100,8 +114,15 @@ export default function HomePage() {
             </div>
           )}
 
+          {/* Action Bar */}
+          <div className="flex flex-wrap gap-2">
+            <OfferSolver inputs={inputs} dispatch={dispatch} />
+            <CompareMode />
+            <PdfExport inputs={inputs} metrics={metrics} aiAnalysis={aiAnalysis} />
+          </div>
+
           {/* Deal Score + KPI Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
+          <div id="main-kpi-grid" className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
             <MetricsGrid metrics={metrics} />
             <DealScore metrics={metrics} />
           </div>
@@ -127,6 +148,9 @@ export default function HomePage() {
             baseAdr={inputs.revenue.adr}
           />
 
+          {/* Tornado Chart */}
+          {tornadoData && <TornadoChart items={tornadoData} baseline={metrics.cocReturn} />}
+
           {/* 5-Year Projection */}
           <ProjectionTable
             metrics={metrics}
@@ -143,6 +167,7 @@ export default function HomePage() {
             onAnalyze={runAnalysis}
             cooldown={aiCooldown}
           />
+          </div>
         </main>
       </div>
 

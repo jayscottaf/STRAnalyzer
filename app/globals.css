@@ -88,6 +88,25 @@ input[type="number"]::-webkit-outer-spin-button {
   opacity: 1;
 }
 
+/* Print styles — hide app UI, show only print-report */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  body > *:not(.print-report) {
+    display: none !important;
+  }
+  .print-report {
+    position: static !important;
+    display: block !important;
+  }
+  @page {
+    size: letter;
+    margin: 0.5in;
+  }
+}
+
 /* Range slider styling */
 input[type="range"] {
   -webkit-appearance: none;

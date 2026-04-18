@@ -76,6 +76,7 @@ export interface DealInputs {
   expenses: ExpenseInputs;
   tax: TaxInputs;
   appreciationRate: number;
+  notes: string;
 }
 
 export interface AmortizationEntry {
@@ -247,5 +248,6 @@ export type DealAction =
   | { type: 'UPDATE_EXPENSES'; payload: Partial<ExpenseInputs> }
   | { type: 'UPDATE_TAX'; payload: Partial<TaxInputs> }
   | { type: 'UPDATE_APPRECIATION'; payload: number }
+  | { type: 'UPDATE_NOTES'; payload: string }
   | { type: 'LOAD_ANALYSIS'; payload: DealInputs }
   | { type: 'RESET_TO_DEFAULTS' };

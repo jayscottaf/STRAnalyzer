@@ -7,6 +7,7 @@ import FinancingInputs from '../inputs/financing-inputs';
 import RevenueInputs from '../inputs/revenue-inputs';
 import ExpenseInputs from '../inputs/expense-inputs';
 import TaxInputs from '../inputs/tax-inputs';
+import NotesInput from '../inputs/notes-input';
 
 interface Props {
   inputs: DealInputs;
@@ -56,6 +57,16 @@ export default function Sidebar({ inputs, dispatch }: Props) {
           pmPct={inputs.expenses.propertyManagementPct}
           avgStayLength={inputs.revenue.avgStayLength}
           onChange={(updates) => dispatch({ type: 'UPDATE_TAX', payload: updates })}
+        />
+      </SidebarSection>
+
+      <SidebarSection
+        title="Deal Notes"
+        badge={inputs.notes && inputs.notes.length > 0 ? String(inputs.notes.length) : undefined}
+      >
+        <NotesInput
+          value={inputs.notes ?? ''}
+          onChange={(v) => dispatch({ type: 'UPDATE_NOTES', payload: v })}
         />
       </SidebarSection>
     </div>
