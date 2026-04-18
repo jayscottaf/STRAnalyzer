@@ -21,6 +21,8 @@ import StickyKpiBar from '@/components/dashboard/sticky-kpi-bar';
 import OfferSolver from '@/components/dashboard/offer-solver';
 import CompareMode from '@/components/dashboard/compare-mode';
 import PdfExport from '@/components/dashboard/pdf-export';
+import OfflineBanner from '@/components/layout/offline-banner';
+import InstallPrompt from '@/components/layout/install-prompt';
 import { calculateTornado } from '@/lib/calculations';
 
 export default function HomePage() {
@@ -80,6 +82,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
+      <OfflineBanner />
       <Header
         inputs={inputs}
         dispatch={dispatch}
@@ -173,17 +176,19 @@ export default function HomePage() {
         </main>
       </div>
 
-      {/* Mobile floating button */}
+      {/* Mobile floating button — 48px touch target */}
       <button
         type="button"
         onClick={() => setDrawerOpen(true)}
-        className="lg:hidden fixed bottom-4 right-4 h-12 px-4 rounded-full bg-accent-blue text-white text-sm font-medium shadow-lg hover:bg-accent-blue/90 transition-colors z-30 flex items-center gap-2"
+        className="lg:hidden fixed bottom-4 right-4 h-14 px-5 rounded-full bg-accent-blue text-white text-sm font-medium shadow-lg hover:bg-accent-blue/90 transition-colors z-30 flex items-center gap-2"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
         Edit Inputs
       </button>
+
+      <InstallPrompt />
     </div>
   );
 }

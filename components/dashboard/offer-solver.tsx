@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { DealInputs, DealAction } from '@/lib/types';
 import { calculateAllMetrics } from '@/lib/calculations';
+import { hapticSuccess } from '@/lib/haptics';
 import { formatCurrency, formatPercent } from '@/lib/format';
 
 interface Props {
@@ -78,6 +79,7 @@ export default function OfferSolver({ inputs, dispatch }: Props) {
       type: 'UPDATE_PROPERTY',
       payload: { purchasePrice: Math.round(result / 1000) * 1000 },
     });
+    hapticSuccess();
     setOpen(false);
     setResult(null);
   }

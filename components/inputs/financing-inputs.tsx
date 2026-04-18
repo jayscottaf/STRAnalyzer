@@ -25,7 +25,7 @@ export default function FinancingInputs({ values, property, onChange }: Props) {
         <select
           value={values.loanType}
           onChange={(e) => onChange({ loanType: e.target.value as FinancingInputsType['loanType'] })}
-          className="w-full h-8 bg-bg-base border border-border-default rounded-md text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
+          className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
         >
           {LOAN_TYPES.map((t) => (
             <option key={t.value} value={t.value}>{t.label}</option>
@@ -69,7 +69,7 @@ export default function FinancingInputs({ values, property, onChange }: Props) {
             <select
               value={values.loanTerm}
               onChange={(e) => onChange({ loanTerm: parseInt(e.target.value) as 15 | 20 | 30 })}
-              className="w-full h-8 bg-bg-base border border-border-default rounded-md text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
+              className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
             >
               {LOAN_TERMS.map((t) => (
                 <option key={t} value={t}>{t} years</option>

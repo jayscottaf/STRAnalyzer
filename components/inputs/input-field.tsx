@@ -44,7 +44,7 @@ export default function InputField({
           <div className="relative">
             <button
               type="button"
-              className="w-3.5 h-3.5 rounded-full bg-border-default text-[9px] text-text-muted flex items-center justify-center hover:bg-border-light cursor-help"
+              className="w-5 h-5 sm:w-3.5 sm:h-3.5 rounded-full bg-border-default text-[10px] sm:text-[9px] text-text-muted flex items-center justify-center hover:bg-border-light cursor-help"
               onMouseEnter={() => setShowTooltip(true)}
               onMouseLeave={() => setShowTooltip(false)}
               onClick={() => setShowTooltip(!showTooltip)}
@@ -71,6 +71,7 @@ export default function InputField({
         )}
         <input
           type={type}
+          inputMode={type === 'number' ? (step && step % 1 !== 0 ? 'decimal' : 'numeric') : undefined}
           value={value}
           onChange={(e) => {
             if (type === 'number') {
@@ -85,7 +86,7 @@ export default function InputField({
           step={step}
           placeholder={placeholder}
           disabled={disabled}
-          className={`w-full h-8 bg-bg-base border rounded-md text-xs text-text-foreground outline-none transition-colors
+          className={`w-full h-10 sm:h-8 bg-bg-base border rounded-md text-sm sm:text-xs text-text-foreground outline-none transition-colors
             focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/30
             disabled:opacity-50 disabled:cursor-not-allowed
             ${prefix ? 'pl-7' : 'pl-2.5'}

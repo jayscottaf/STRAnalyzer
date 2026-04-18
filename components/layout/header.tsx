@@ -12,7 +12,7 @@ interface Props {
 
 export default function Header({ inputs, dispatch, onAnalyze, analyzing }: Props) {
   return (
-    <header className="h-12 bg-bg-surface border-b border-border-default flex items-center justify-between px-4 shrink-0">
+    <header className="h-14 sm:h-12 bg-bg-surface border-b border-border-default flex items-center justify-between px-4 shrink-0">
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded bg-accent-blue flex items-center justify-center">

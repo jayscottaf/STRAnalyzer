@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { DealInputs, DealAction, SavedAnalysis } from '@/lib/types';
 import { DEFAULT_INPUTS } from '@/lib/constants';
 import { loadSavedAnalyses, saveAnalysis, deleteAnalysis } from '@/lib/storage';
+import { hapticSuccess } from '@/lib/haptics';
 
 interface Props {
   inputs: DealInputs;
@@ -37,6 +38,7 @@ export default function SaveLoadMenu({ inputs, dispatch }: Props) {
     saveAnalysis(saveName.trim(), inputs);
     setSaveName('');
     setSaved(loadSavedAnalyses());
+    hapticSuccess();
   }
 
   function handleLoad(analysis: SavedAnalysis) {

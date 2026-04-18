@@ -17,7 +17,7 @@ export default function SidebarSection({ title, defaultOpen = false, badge, chil
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-bg-hover transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 sm:py-2.5 hover:bg-bg-hover transition-colors min-h-[44px]"
       >
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-text-foreground">{title}</span>

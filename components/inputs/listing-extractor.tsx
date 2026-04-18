@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { PropertyInputs } from '@/lib/types';
 import { formatCurrency } from '@/lib/format';
+import { hapticSuccess } from '@/lib/haptics';
 
 interface ExtractedData {
   market?: string | null;
@@ -78,6 +79,7 @@ export default function ListingExtractor({ onApply }: Props) {
     if (typeof result.purchasePrice === 'number' && result.purchasePrice > 0) updates.purchasePrice = result.purchasePrice;
     if (typeof result.yearBuilt === 'number' && result.yearBuilt > 1800) updates.yearBuilt = result.yearBuilt;
     onApply(updates);
+    hapticSuccess();
     close();
   }
 

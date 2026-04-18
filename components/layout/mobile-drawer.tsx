@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useCallback, useEffect } from 'react';
 import type { DealInputs, DealAction } from '@/lib/types';
 import Sidebar from './sidebar';
 
@@ -11,6 +12,44 @@ interface Props {
 }
 
 export default function MobileDrawer({ open, onClose, inputs, dispatch }: Props) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef({ startY: 0, isDragging: false });
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('.drag-handle')) {
+      dragRef.current = { startY: e.touches[0].clientY, isDragging: true };
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!dragRef.current.isDragging || !sheetRef.current) return;
+    const dy = e.touches[0].clientY - dragRef.current.startY;
+    if (dy > 0) {
+      sheetRef.current.style.transform = `translateY(${dy}px)`;
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!dragRef.current.isDragging || !sheetRef.current) return;
+    const dy = e.changedTouches[0].clientY - dragRef.current.startY;
+    sheetRef.current.style.transform = '';
+    dragRef.current.isDragging = false;
+    if (dy > 120) {
+      onClose();
+    }
+  }, [onClose]);
+
+  // Lock body scroll when open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
   return (
     <>
       {/* Overlay */}
@@ -21,25 +60,38 @@ export default function MobileDrawer({ open, onClose, inputs, dispatch }: Props)
         />
       )}
 
-      {/* Drawer */}
+      {/* Bottom Sheet */}
       <div
-        className={`fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-bg-surface border-r border-border-default z-50 transform transition-transform duration-300 lg:hidden ${
-          open ? 'translate-x-0' : '-translate-x-full'
+        ref={sheetRef}
+        className={`fixed bottom-0 left-0 right-0 bg-bg-surface rounded-t-2xl z-50 transform transition-transform duration-300 ease-out lg:hidden ${
+          open ? 'translate-y-0' : 'translate-y-full'
         }`}
+        style={{ maxHeight: '90vh' }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border-default">
+        {/* Drag handle */}
+        <div className="drag-handle flex justify-center py-3 cursor-grab active:cursor-grabbing">
+          <div className="w-10 h-1 rounded-full bg-border-light" />
+        </div>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 pb-2 border-b border-border-default">
           <span className="text-sm font-semibold text-text-foreground">Edit Inputs</span>
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded hover:bg-bg-hover text-text-muted"
+            className="w-10 h-10 flex items-center justify-center rounded-lg hover:bg-bg-hover text-text-muted"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <div className="h-[calc(100%-49px)] overflow-y-auto">
+
+        {/* Content */}
+        <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 80px)' }}>
           <Sidebar inputs={inputs} dispatch={dispatch} />
         </div>
       </div>

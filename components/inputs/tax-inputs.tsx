@@ -53,7 +53,7 @@ export default function TaxInputs({ values, pmPct, avgStayLength, onChange }: Pr
             <select
               value={values.federalBracket}
               onChange={(e) => onChange({ federalBracket: parseInt(e.target.value) })}
-              className="w-full h-8 bg-bg-base border border-border-default rounded-md text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
+              className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
             >
               {TAX_BRACKETS.map((b) => (
                 <option key={b} value={b}>{b}%</option>
@@ -89,7 +89,7 @@ export default function TaxInputs({ values, pmPct, avgStayLength, onChange }: Pr
             <select
               value={values.filingStatus ?? 'mfj'}
               onChange={(e) => onChange({ filingStatus: e.target.value as 'single' | 'mfj' })}
-              className="w-full h-8 bg-bg-base border border-border-default rounded-md text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
+              className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
             >
               <option value="single">Single</option>
               <option value="mfj">Married Filing Jointly</option>

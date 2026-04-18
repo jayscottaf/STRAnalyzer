@@ -61,7 +61,7 @@ export default function RevenueInputs({ values, onChange, onSeasonalityChange }:
           onChange={(e) =>
             onChange({ platform: e.target.value as RevenueInputsType['platform'] })
           }
-          className="w-full h-8 bg-bg-base border border-border-default rounded-md text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
+          className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
         >
           {PLATFORM_OPTIONS.map((p) => (
             <option key={p.value} value={p.value}>{p.label}</option>
