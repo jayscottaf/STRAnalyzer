@@ -11,6 +11,7 @@ import MobileDrawer from '@/components/layout/mobile-drawer';
 import MetricsGrid from '@/components/dashboard/metrics-grid';
 import CashFlowBreakdown from '@/components/dashboard/cash-flow-breakdown';
 import TaxBenefitPanel from '@/components/dashboard/tax-benefit-panel';
+import TaxComparator from '@/components/dashboard/tax-comparator';
 import SensitivityGrid from '@/components/dashboard/sensitivity-grid';
 import ProjectionTable from '@/components/dashboard/projection-table';
 import AIAnalysisPanel from '@/components/ai/ai-analysis-panel';
@@ -137,6 +138,9 @@ export default function HomePage() {
 
           {/* Tax Benefits */}
           {inputs.tax.enabled && <TaxBenefitPanel metrics={metrics} />}
+
+          {/* Tax Strategy Comparator */}
+          {inputs.tax.enabled && <TaxComparator inputs={inputs} />}
 
           {/* Cash Flow Chart */}
           {metrics.projection.length > 0 && (

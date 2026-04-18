@@ -1,4 +1,4 @@
-const CACHE_NAME = 'str-analyzer-v1';
+const CACHE_NAME = 'str-analyzer-v2';
 
 const PRECACHE_URLS = [
   '/',
@@ -8,7 +8,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
   );
-  self.skipWaiting();
+  // Don't skipWaiting — let the client control when to activate
 });
 
 self.addEventListener('activate', (event) => {
@@ -24,17 +24,20 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Listen for skip-waiting message from client
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET and cross-origin
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
-
-  // API calls: network-only (AI analysis needs live connection)
   if (url.pathname.startsWith('/api/')) return;
 
-  // App shell & assets: stale-while-revalidate
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
       const cached = await cache.match(request);

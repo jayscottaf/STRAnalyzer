@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { DealMetrics } from '@/lib/types';
 import { formatCurrency, formatPercent, formatDSCR } from '@/lib/format';
 import { THRESHOLDS } from '@/lib/constants';
@@ -25,14 +25,53 @@ function getColor(value: number, thresholds: { good: number; marginal: number },
 type ViewMode = 'grid' | 'compact';
 
 const VIEW_MODE_KEY = 'str-kpi-view-mode';
+const CARD_ORDER_KEY = 'str-kpi-card-order';
 
 export default function MetricsGrid({ metrics }: Props) {
   const [drilldownKey, setDrilldownKey] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [cardOrder, setCardOrder] = useState<string[] | null>(null);
+  const dragItem = useRef<string | null>(null);
+  const dragOver = useRef<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
     if (saved === 'compact' || saved === 'grid') setViewMode(saved);
+    const savedOrder = localStorage.getItem(CARD_ORDER_KEY);
+    if (savedOrder) {
+      try { setCardOrder(JSON.parse(savedOrder)); } catch { /* ignore */ }
+    }
+  }, []);
+
+  const handleDragStart = useCallback((key: string) => {
+    dragItem.current = key;
+  }, []);
+
+  const handleDragEnter = useCallback((key: string) => {
+    dragOver.current = key;
+  }, []);
+
+  const handleDragEnd = useCallback((orderedKeys: string[]) => {
+    if (!dragItem.current || !dragOver.current || dragItem.current === dragOver.current) {
+      dragItem.current = null;
+      dragOver.current = null;
+      return;
+    }
+    const fromIdx = orderedKeys.indexOf(dragItem.current);
+    const toIdx = orderedKeys.indexOf(dragOver.current);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const newOrder = [...orderedKeys];
+    const [removed] = newOrder.splice(fromIdx, 1);
+    newOrder.splice(toIdx, 0, removed);
+    setCardOrder(newOrder);
+    localStorage.setItem(CARD_ORDER_KEY, JSON.stringify(newOrder));
+    dragItem.current = null;
+    dragOver.current = null;
+  }, []);
+
+  const resetOrder = useCallback(() => {
+    setCardOrder(null);
+    localStorage.removeItem(CARD_ORDER_KEY);
   }, []);
 
   function toggleView() {
@@ -171,10 +210,33 @@ export default function MetricsGrid({ metrics }: Props) {
     }] : []),
   ];
 
+  // Apply custom order
+  const orderedMetrics = (() => {
+    if (!cardOrder) return allMetrics;
+    const byKey = new Map(allMetrics.map((m) => [m.key, m]));
+    const ordered = cardOrder.map((k) => byKey.get(k)).filter(Boolean) as typeof allMetrics;
+    // Append any new metrics not in saved order
+    for (const m of allMetrics) {
+      if (!cardOrder.includes(m.key)) ordered.push(m);
+    }
+    return ordered;
+  })();
+
+  const orderedKeys = orderedMetrics.map((m) => m.key);
+
   return (
     <>
-      {/* View mode toggle */}
-      <div className="flex justify-end mb-2">
+      {/* View mode toggle + reset */}
+      <div className="flex justify-end gap-3 mb-2">
+        {cardOrder && (
+          <button
+            type="button"
+            onClick={resetOrder}
+            className="text-[10px] text-text-muted hover:text-accent-red flex items-center gap-1 transition-colors"
+          >
+            Reset order
+          </button>
+        )}
         <button
           type="button"
           onClick={toggleView}
@@ -200,9 +262,17 @@ export default function MetricsGrid({ metrics }: Props) {
 
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 auto-rows-fr">
-          {allMetrics.map((m) => (
-            <MetricCard
+          {orderedMetrics.map((m) => (
+            <div
               key={m.key}
+              draggable
+              onDragStart={() => handleDragStart(m.key)}
+              onDragEnter={() => handleDragEnter(m.key)}
+              onDragEnd={() => handleDragEnd(orderedKeys)}
+              onDragOver={(e) => e.preventDefault()}
+              className="cursor-grab active:cursor-grabbing"
+            >
+            <MetricCard
               label={m.label}
               value={m.value}
               rawValue={m.rawValue}
@@ -215,11 +285,12 @@ export default function MetricsGrid({ metrics }: Props) {
               metricKey={m.key}
               onDrilldown={setDrilldownKey}
             />
+            </div>
           ))}
         </div>
       ) : (
         <div className="rounded-lg border border-border-default bg-bg-surface overflow-hidden">
-          {allMetrics.map((m, i) => {
+          {orderedMetrics.map((m, i) => {
             const colorText =
               m.color === 'green' ? 'text-accent-green' :
               m.color === 'amber' ? 'text-accent-amber' :

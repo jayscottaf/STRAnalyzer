@@ -22,15 +22,22 @@ interface Props {
 
 const MAX_CHARS = 10_000;
 
+type InputMode = 'text' | 'image';
+
 export default function ListingExtractor({ onApply }: Props) {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<InputMode>('text');
   const [text, setText] = useState('');
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageName, setImageName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ExtractedData | null>(null);
 
   function reset() {
     setText('');
+    setImageBase64(null);
+    setImageName('');
     setResult(null);
     setError(null);
     setLoading(false);
@@ -39,19 +46,42 @@ export default function ListingExtractor({ onApply }: Props) {
   function close() {
     setOpen(false);
     reset();
+    setMode('text');
+  }
+
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      setError('Image must be under 4MB');
+      return;
+    }
+    setImageName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setImageBase64(dataUrl);
+    };
+    reader.readAsDataURL(file);
   }
 
   async function handleExtract() {
-    if (!text.trim()) return;
+    if (mode === 'text' && !text.trim()) return;
+    if (mode === 'image' && !imageBase64) return;
+
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
+      const body = mode === 'text'
+        ? { text: text.slice(0, MAX_CHARS) }
+        : { image: imageBase64 };
+
       const res = await fetch('/api/extract-listing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text.slice(0, MAX_CHARS) }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -122,38 +152,99 @@ export default function ListingExtractor({ onApply }: Props) {
               <div className="p-4">
                 {!result && (
                   <>
-                    <p className="text-[11px] text-text-muted mb-2">
-                      Paste anything — a Zillow / Redfin / MLS listing, an email from your agent, or any property description. The AI will extract what it can and leave blanks for anything unclear.
-                    </p>
-                    <textarea
-                      value={text}
-                      onChange={(e) => setText(e.target.value.slice(0, MAX_CHARS))}
-                      placeholder="Paste listing text here..."
-                      disabled={loading}
-                      className="w-full h-40 bg-bg-base border border-border-default rounded-md text-xs text-text-foreground px-3 py-2 outline-none focus:border-accent-blue resize-none font-mono disabled:opacity-50"
-                    />
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-[10px] text-text-muted">
-                        {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} chars
-                      </span>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={close}
+                    {/* Tab switcher */}
+                    <div className="flex gap-1 mb-3 p-0.5 bg-bg-base rounded-md">
+                      <button
+                        type="button"
+                        onClick={() => setMode('text')}
+                        className={`flex-1 h-7 text-[11px] font-medium rounded transition-colors ${
+                          mode === 'text' ? 'bg-bg-elevated text-text-foreground' : 'text-text-muted hover:text-text-foreground'
+                        }`}
+                      >
+                        Paste Text
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMode('image')}
+                        className={`flex-1 h-7 text-[11px] font-medium rounded transition-colors ${
+                          mode === 'image' ? 'bg-bg-elevated text-text-foreground' : 'text-text-muted hover:text-text-foreground'
+                        }`}
+                      >
+                        Upload Image
+                      </button>
+                    </div>
+
+                    {mode === 'text' ? (
+                      <>
+                        <p className="text-[11px] text-text-muted mb-2">
+                          Paste anything — a Zillow / Redfin / MLS listing, an email from your agent, or any property description.
+                        </p>
+                        <textarea
+                          value={text}
+                          onChange={(e) => setText(e.target.value.slice(0, MAX_CHARS))}
+                          placeholder="Paste listing text here..."
                           disabled={loading}
-                          className="h-8 px-3 text-[11px] font-medium rounded-md border border-border-default text-text-muted hover:text-text-foreground transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleExtract}
-                          disabled={loading || !text.trim()}
-                          className="h-8 px-4 text-[11px] font-medium rounded-md bg-accent-blue text-white hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {loading ? 'Extracting…' : 'Extract Details'}
-                        </button>
-                      </div>
+                          className="w-full h-40 bg-bg-base border border-border-default rounded-md text-xs text-text-foreground px-3 py-2 outline-none focus:border-accent-blue resize-none font-mono disabled:opacity-50"
+                        />
+                        <div className="text-[10px] text-text-muted mt-1">
+                          {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} chars
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-[11px] text-text-muted mb-2">
+                          Upload a screenshot, photo of an MLS sheet, agent flyer, or any image with property details.
+                        </p>
+                        {!imageBase64 ? (
+                          <label className="flex flex-col items-center justify-center h-40 bg-bg-base border-2 border-dashed border-border-default rounded-md cursor-pointer hover:border-accent-blue transition-colors">
+                            <svg className="w-8 h-8 text-text-muted mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.41a2.25 2.25 0 013.182 0l2.909 2.91m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                            </svg>
+                            <span className="text-xs text-text-muted">Click to upload or drag & drop</span>
+                            <span className="text-[10px] text-text-muted/60 mt-0.5">PNG, JPG, WebP — max 4MB</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        ) : (
+                          <div className="relative h-40 bg-bg-base border border-border-default rounded-md overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={imageBase64} alt="Uploaded" className="w-full h-full object-contain" />
+                            <button
+                              type="button"
+                              onClick={() => { setImageBase64(null); setImageName(''); }}
+                              className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white flex items-center justify-center text-xs"
+                            >
+                              ×
+                            </button>
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-2 py-1 text-[10px] text-white truncate">
+                              {imageName}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    <div className="flex items-center justify-end mt-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={close}
+                        disabled={loading}
+                        className="h-8 px-3 text-[11px] font-medium rounded-md border border-border-default text-text-muted hover:text-text-foreground transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExtract}
+                        disabled={loading || (mode === 'text' ? !text.trim() : !imageBase64)}
+                        className="h-8 px-4 text-[11px] font-medium rounded-md bg-accent-blue text-white hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {loading ? 'Extracting…' : 'Extract Details'}
+                      </button>
                     </div>
                   </>
                 )}

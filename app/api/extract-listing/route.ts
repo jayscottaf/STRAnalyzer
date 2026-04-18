@@ -19,7 +19,7 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-const SYSTEM_PROMPT = `You extract STR (short-term rental) property details from real estate listing text.
+const SYSTEM_PROMPT = `You extract STR (short-term rental) property details from real estate listing text or images.
 
 Return ONLY valid JSON with this exact shape:
 {
@@ -49,6 +49,11 @@ const VALID_PROPERTY_TYPES = new Set([
   'Cabin', 'Beach House', 'Lake House', 'Condo', 'Urban Apartment', 'Mountain Home', 'Other',
 ]);
 
+interface ExtractBody {
+  text?: string;
+  image?: string; // base64 data URL
+}
+
 export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? 'unknown';
 
@@ -60,31 +65,49 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'OpenAI API key not configured.' }, { status: 500 });
   }
 
-  let body: { text: string };
+  let body: ExtractBody;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
   }
 
-  const text = (body.text ?? '').trim();
-  if (!text) {
-    return NextResponse.json({ error: 'No text provided' }, { status: 400 });
-  }
+  const hasText = body.text && body.text.trim().length > 0;
+  const hasImage = body.image && body.image.startsWith('data:image/');
 
-  // Cap at 10k chars to control cost
-  const truncated = text.length > 10_000 ? text.slice(0, 10_000) : text;
+  if (!hasText && !hasImage) {
+    return NextResponse.json({ error: 'No text or image provided' }, { status: 400 });
+  }
 
   try {
     const openai = getOpenAI();
+
+    // Build messages based on input type
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userContent: any[] = [];
+
+    if (hasImage) {
+      userContent.push({
+        type: 'image_url',
+        image_url: { url: body.image, detail: 'high' },
+      });
+      userContent.push({
+        type: 'text',
+        text: 'Extract the property details from this listing image.',
+      });
+    } else {
+      const truncated = body.text!.length > 10_000 ? body.text!.slice(0, 10_000) : body.text!;
+      userContent.push({ type: 'text', text: truncated });
+    }
+
     const response = await openai.chat.completions.create({
-      model: 'gpt-4.1-mini',
+      model: hasImage ? 'gpt-4.1' : 'gpt-4.1-mini',
       temperature: 0,
       max_tokens: 500,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: truncated },
+        { role: 'user', content: userContent },
       ],
     });
 
@@ -104,7 +127,6 @@ export async function POST(request: NextRequest) {
       confidence?: Record<string, 'high' | 'low'>;
     };
 
-    // Fallback property type if AI returns invalid enum
     if (parsed.propertyType && !VALID_PROPERTY_TYPES.has(parsed.propertyType)) {
       parsed.propertyType = 'Other';
     }
