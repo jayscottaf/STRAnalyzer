@@ -18,15 +18,15 @@ function scoreMetric(value: number, good: number, marginal: number, lowerBetter 
   return Math.max(0, 50 * (value / marginal));
 }
 
-function getGrade(score: number): { letter: string; color: string } {
-  if (score >= 93) return { letter: 'A+', color: 'text-accent-green' };
-  if (score >= 85) return { letter: 'A', color: 'text-accent-green' };
-  if (score >= 78) return { letter: 'B+', color: 'text-accent-green/80' };
-  if (score >= 70) return { letter: 'B', color: 'text-accent-amber' };
-  if (score >= 60) return { letter: 'C+', color: 'text-accent-amber' };
-  if (score >= 50) return { letter: 'C', color: 'text-accent-amber' };
-  if (score >= 40) return { letter: 'D', color: 'text-accent-red' };
-  return { letter: 'F', color: 'text-accent-red' };
+function getGrade(score: number): { letter: string; color: string; bgColor: string } {
+  if (score >= 93) return { letter: 'A+', color: 'text-accent-green', bgColor: 'bg-accent-green' };
+  if (score >= 85) return { letter: 'A', color: 'text-accent-green', bgColor: 'bg-accent-green' };
+  if (score >= 78) return { letter: 'B+', color: 'text-accent-green', bgColor: 'bg-accent-green' };
+  if (score >= 70) return { letter: 'B', color: 'text-accent-amber', bgColor: 'bg-accent-amber' };
+  if (score >= 60) return { letter: 'C+', color: 'text-accent-amber', bgColor: 'bg-accent-amber' };
+  if (score >= 50) return { letter: 'C', color: 'text-accent-amber', bgColor: 'bg-accent-amber' };
+  if (score >= 40) return { letter: 'D', color: 'text-accent-red', bgColor: 'bg-accent-red' };
+  return { letter: 'F', color: 'text-accent-red', bgColor: 'bg-accent-red' };
 }
 
 export default function DealScore({ metrics }: Props) {
@@ -34,7 +34,7 @@ export default function DealScore({ metrics }: Props) {
   const capScore = scoreMetric(metrics.capRate, THRESHOLDS.cap.good, THRESHOLDS.cap.marginal);
   const dscrScore = isFinite(metrics.dscr)
     ? scoreMetric(metrics.dscr, THRESHOLDS.dscr.good, THRESHOLDS.dscr.marginal)
-    : 100; // cash purchase
+    : 100;
   const cfScore = scoreMetric(
     metrics.monthlyCashFlow,
     THRESHOLDS.monthlyCashFlow.good,
@@ -53,62 +53,53 @@ export default function DealScore({ metrics }: Props) {
   );
 
   const composite = Math.round(
-    (cocScore * 0.25 + capScore * 0.15 + dscrScore * 0.15 + cfScore * 0.2 + beScore * 0.15 + yieldScore * 0.1),
+    cocScore * 0.25 + capScore * 0.15 + dscrScore * 0.15 + cfScore * 0.2 + beScore * 0.15 + yieldScore * 0.1,
   );
 
-  const { letter, color } = getGrade(composite);
+  const { letter, color, bgColor } = getGrade(composite);
 
   const factors = [
-    { label: 'Cash-on-Cash', score: cocScore },
-    { label: 'Cash Flow', score: cfScore },
-    { label: 'Cap Rate', score: capScore },
+    { label: 'CoC', score: cocScore },
+    { label: 'CF', score: cfScore },
+    { label: 'Cap', score: capScore },
     { label: 'DSCR', score: dscrScore },
-    { label: 'Break-Even', score: beScore },
+    { label: 'B/E', score: beScore },
     { label: 'Yield', score: yieldScore },
   ];
 
   return (
-    <div className="rounded-lg border border-border-default bg-bg-surface p-4">
-      <div className="flex items-center gap-4">
-        {/* Score circle */}
-        <div className="relative w-20 h-20 shrink-0">
-          <svg viewBox="0 0 80 80" className="w-full h-full -rotate-90">
-            <circle cx="40" cy="40" r="34" fill="none" stroke="#2e3240" strokeWidth="6" />
-            <circle
-              cx="40"
-              cy="40"
-              r="34"
-              fill="none"
-              stroke={composite >= 70 ? '#10b981' : composite >= 50 ? '#f59e0b' : '#ef4444'}
-              strokeWidth="6"
-              strokeLinecap="round"
-              strokeDasharray={`${(composite / 100) * 213.6} 213.6`}
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={`text-xl font-bold ${color}`}>{letter}</span>
-            <span className="text-[9px] text-text-muted">{composite}/100</span>
-          </div>
+    <div className="rounded-lg border border-border-default bg-bg-surface px-4 py-2.5 flex items-center gap-4">
+      {/* Grade badge */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center`}>
+          <span className="text-lg font-black text-white">{letter}</span>
         </div>
+        <div>
+          <div className="text-[10px] text-text-muted uppercase tracking-wider">Deal Score</div>
+          <div className={`text-sm font-bold ${color}`}>{composite}/100</div>
+        </div>
+      </div>
 
-        {/* Factor bars */}
-        <div className="flex-1 space-y-1.5">
-          {factors.map(({ label, score }) => (
-            <div key={label} className="flex items-center gap-2">
-              <span className="text-[9px] text-text-muted w-16 shrink-0">{label}</span>
-              <div className="flex-1 h-1.5 bg-bg-base rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{
-                    width: `${score}%`,
-                    backgroundColor: score >= 70 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444',
-                  }}
-                />
-              </div>
-              <span className="text-[9px] text-text-muted w-6 text-right">{Math.round(score)}</span>
+      {/* Divider */}
+      <div className="w-px h-8 bg-border-default shrink-0 hidden sm:block" />
+
+      {/* Factor bars — horizontal row */}
+      <div className="flex-1 grid grid-cols-3 sm:grid-cols-6 gap-x-3 gap-y-1">
+        {factors.map(({ label, score }) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <span className="text-[9px] text-text-muted w-8 shrink-0">{label}</span>
+            <div className="flex-1 h-1.5 bg-bg-base rounded-full overflow-hidden min-w-[30px]">
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${score}%`,
+                  backgroundColor: score >= 70 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444',
+                }}
+              />
             </div>
-          ))}
-        </div>
+            <span className="text-[9px] text-text-muted w-5 text-right">{Math.round(score)}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

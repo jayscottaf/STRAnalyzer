@@ -121,10 +121,12 @@ export default function HomePage() {
             <PdfExport inputs={inputs} metrics={metrics} aiAnalysis={aiAnalysis} />
           </div>
 
-          {/* Deal Score + KPI Grid */}
-          <div id="main-kpi-grid" className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
+          {/* Deal Score */}
+          <DealScore metrics={metrics} />
+
+          {/* KPI Grid */}
+          <div id="main-kpi-grid">
             <MetricsGrid metrics={metrics} />
-            <DealScore metrics={metrics} />
           </div>
 
           {/* Cash Flow Breakdown */}
