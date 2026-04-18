@@ -31,8 +31,8 @@ export default function PdfExport({ inputs, metrics, aiAnalysis }: Props) {
         Print / Export PDF
       </button>
 
-      {/* Hidden print-only report */}
-      <div className="print-report hidden print:block fixed inset-0 bg-white text-black p-8 text-[11px] font-sans">
+      {/* Print-only report — invisible on screen, visible when printing */}
+      <div className="print-report" style={{ position: 'absolute', left: '-9999px', top: 0, width: '8.5in', background: 'white', color: 'black', padding: '0.5in', fontSize: '11px', fontFamily: 'sans-serif' }}>
         <div className="mb-6 pb-4 border-b-2 border-black">
           <h1 className="text-2xl font-bold">STR Deal Analysis Report</h1>
           <p className="text-xs text-gray-600 mt-1">
