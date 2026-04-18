@@ -61,7 +61,7 @@ export default function SaveLoadMenu({ inputs, dispatch }: Props) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="h-8 px-3 text-xs font-medium rounded-md border border-border-default text-text-muted hover:text-text-foreground hover:border-border-light transition-colors"
+        className="inline-flex items-center justify-center h-8 px-3 text-xs font-medium rounded-md border border-border-default text-text-muted hover:text-text-foreground hover:border-border-light transition-colors"
       >
         Save / Load
       </button>

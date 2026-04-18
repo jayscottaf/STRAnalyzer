@@ -32,7 +32,7 @@ export default function Header({ inputs, dispatch, onAnalyze, analyzing }: Props
           type="button"
           onClick={onAnalyze}
           disabled={analyzing}
-          className="hidden sm:flex h-8 px-4 text-xs font-medium rounded-md bg-accent-blue text-white hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="hidden sm:inline-flex items-center justify-center h-8 px-4 text-xs font-medium rounded-md bg-accent-blue text-white hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {analyzing ? 'Analyzing...' : 'Run AI Analysis'}
         </button>
