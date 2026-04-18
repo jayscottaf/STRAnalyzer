@@ -52,6 +52,7 @@ export default function CashFlowBreakdown({ metrics }: Props) {
           {eb.hoa > 0 && <LineItem label="HOA" amount={eb.hoa} indent />}
           <LineItem label="Utilities" amount={eb.utilities} indent />
           <LineItem label="Maintenance" amount={eb.maintenance} indent />
+          {eb.capex > 0 && <LineItem label="CapEx Reserve" amount={eb.capex} indent />}
           {eb.propertyManagement > 0 && <LineItem label="Property Mgmt" amount={eb.propertyManagement} indent />}
           <LineItem label="Supplies" amount={eb.supplies} indent />
           <LineItem label="Software" amount={eb.software} indent />

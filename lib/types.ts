@@ -41,6 +41,7 @@ export interface ExpenseInputs {
   hoaMonthly: number;
   utilitiesMonthly: number;
   maintenanceReservePct: number;
+  capexReservePct: number;
   propertyManagementPct: number;
   suppliesMonthly: number;
   softwareMonthly: number;
@@ -60,6 +61,12 @@ export interface TaxInputs {
   acceleratedPct: number;
   bonusDepreciationRate: number;
   materialParticipation: boolean;
+  significantPersonalServices: boolean;
+  realEstateProfessional: boolean;
+  passiveIncomeFromOtherProperties: number;
+  exitYear: number;
+  sellingCostsPct: number;
+  filingStatus: 'single' | 'mfj';
 }
 
 export interface DealInputs {
@@ -85,6 +92,7 @@ export interface ExpenseBreakdown {
   hoa: number;
   utilities: number;
   maintenance: number;
+  capex: number;
   propertyManagement: number;
   supplies: number;
   software: number;
@@ -102,6 +110,13 @@ export interface DepreciationBreakdown {
   total: number;
 }
 
+export interface PassiveActivityStatus {
+  isRentalActivity: boolean;
+  isNonPassive: boolean;
+  pathway: string;
+  tier: 'short' | 'mid' | 'long';
+}
+
 export interface TaxBenefits {
   depreciation: DepreciationBreakdown;
   mortgageInterest: number;
@@ -109,7 +124,22 @@ export interface TaxBenefits {
   taxSavings: number;
   afterTaxCashFlow: number;
   combinedRate: number;
-  materialParticipation: boolean;
+  passiveStatus: PassiveActivityStatus;
+  qbiDeduction: number;
+}
+
+export interface ExitAnalysis {
+  salePrice: number;
+  sellingCosts: number;
+  loanPayoff: number;
+  netSaleProceeds: number;
+  accumulatedDepreciation: number;
+  depreciationRecapture: number;
+  capitalGain: number;
+  capitalGainTax: number;
+  totalTaxOnSale: number;
+  afterTaxProceeds: number;
+  is1031: boolean;
 }
 
 export interface ProjectionYear {
@@ -128,6 +158,7 @@ export interface ProjectionYear {
   loanBalance: number;
   equity: number;
   cumulativeCashFlow: number;
+  totalReturn: number;
 }
 
 export interface SensitivityCell {
@@ -169,6 +200,12 @@ export interface DealMetrics {
   // Tax
   taxBenefits: TaxBenefits | null;
   trueCocReturn: number | null;
+  passiveStatus: PassiveActivityStatus | null;
+
+  // Returns
+  irr: number | null;
+  totalReturnPct: number | null;
+  exitAnalysis: ExitAnalysis | null;
 
   // Projections
   projection: ProjectionYear[];

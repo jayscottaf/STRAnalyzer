@@ -14,6 +14,8 @@ import TaxBenefitPanel from '@/components/dashboard/tax-benefit-panel';
 import SensitivityGrid from '@/components/dashboard/sensitivity-grid';
 import ProjectionTable from '@/components/dashboard/projection-table';
 import AIAnalysisPanel from '@/components/ai/ai-analysis-panel';
+import CashFlowChart from '@/components/dashboard/cash-flow-chart';
+import DealScore from '@/components/dashboard/deal-score';
 
 export default function HomePage() {
   const { inputs, dispatch, errors, hydrated } = useDealInputs();
@@ -98,14 +100,25 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* KPI Grid */}
-          <MetricsGrid metrics={metrics} />
+          {/* Deal Score + KPI Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4">
+            <MetricsGrid metrics={metrics} />
+            <DealScore metrics={metrics} />
+          </div>
 
           {/* Cash Flow Breakdown */}
           <CashFlowBreakdown metrics={metrics} />
 
           {/* Tax Benefits */}
           {inputs.tax.enabled && <TaxBenefitPanel metrics={metrics} />}
+
+          {/* Cash Flow Chart */}
+          {metrics.projection.length > 0 && (
+            <CashFlowChart
+              projection={metrics.projection}
+              taxEnabled={inputs.tax.enabled}
+            />
+          )}
 
           {/* Sensitivity Grid */}
           <SensitivityGrid

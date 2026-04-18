@@ -106,6 +106,26 @@ export default function MetricsGrid({ metrics }: Props) {
         tooltip="Gross revenue / purchase price. Quick measure of revenue potential."
         color={getColor(metrics.grossRentalYield, THRESHOLDS.grossYield)}
       />
+
+      {/* Row 3: IRR + Total Return (only if tax enabled) */}
+      {metrics.irr !== null && (
+        <MetricCard
+          label="IRR (w/ Exit)"
+          value={formatPercent(metrics.irr)}
+          subtitle={`${metrics.exitAnalysis?.is1031 ? '1031 exchange' : 'After-tax exit'}`}
+          tooltip="Internal rate of return including annual cash flows and after-tax sale proceeds at exit year. The gold standard return metric."
+          color={getColor(metrics.irr, THRESHOLDS.irr)}
+        />
+      )}
+      {metrics.totalReturnPct !== null && (
+        <MetricCard
+          label="5yr Total Return"
+          value={formatPercent(metrics.totalReturnPct)}
+          subtitle="Cash + appreciation + paydown"
+          tooltip="Total return on invested cash: cumulative cash flow + property appreciation + mortgage principal paydown, divided by initial cash invested."
+          color={getColor(metrics.totalReturnPct, THRESHOLDS.totalReturn)}
+        />
+      )}
     </div>
   );
 }

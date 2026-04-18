@@ -14,6 +14,7 @@ export default function ExpenseInputs({ values, property, onChange }: Props) {
   const monthlyFixed =
     (property.purchasePrice * (values.propertyTaxRate / 100)) / 12 +
     (property.purchasePrice * (values.insuranceRate / 100)) / 12 +
+    (property.purchasePrice * ((values.capexReservePct ?? 0) / 100)) / 12 +
     values.hoaMonthly +
     values.utilitiesMonthly +
     values.suppliesMonthly +
@@ -70,6 +71,17 @@ export default function ExpenseInputs({ values, property, onChange }: Props) {
         min={0}
         max={10}
         step={0.5}
+      />
+
+      <InputField
+        label="CapEx Reserve"
+        value={values.capexReservePct ?? 0}
+        onChange={(v) => onChange({ capexReservePct: v as number })}
+        suffix="%"
+        min={0}
+        max={5}
+        step={0.25}
+        tooltip="Capital expenditures: roof, HVAC, appliances, furnishing refresh. Separate from routine maintenance. 0.5-1.5% of value is typical."
       />
 
       <InputField

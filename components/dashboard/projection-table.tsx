@@ -73,6 +73,7 @@ export default function ProjectionTable({ metrics, appreciationRate, taxEnabled,
             <Row label="Loan Balance" values={projection.map((p) => p.loanBalance)} />
             <Row label="Equity" values={projection.map((p) => p.equity)} bold />
             <Row label="Cumulative Cash Flow" values={projection.map((p) => p.cumulativeCashFlow)} bold highlight />
+            <Row label="Total Return" values={projection.map((p) => p.totalReturn)} isPercent bold />
           </tbody>
         </table>
       </div>

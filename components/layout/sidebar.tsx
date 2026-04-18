@@ -54,6 +54,7 @@ export default function Sidebar({ inputs, dispatch }: Props) {
         <TaxInputs
           values={inputs.tax}
           pmPct={inputs.expenses.propertyManagementPct}
+          avgStayLength={inputs.revenue.avgStayLength}
           onChange={(updates) => dispatch({ type: 'UPDATE_TAX', payload: updates })}
         />
       </SidebarSection>

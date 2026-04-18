@@ -14,10 +14,23 @@ export default function TaxBenefitPanel({ metrics }: Props) {
   const dep = tax.depreciation;
   const isCostSeg = dep.personalProperty !== undefined;
   const paperLoss = tax.taxableIncome < 0 ? Math.abs(tax.taxableIncome) : 0;
+  const ps = tax.passiveStatus;
 
   return (
     <div className="rounded-lg border border-border-default bg-bg-surface p-4">
       <h3 className="text-sm font-semibold text-text-foreground mb-3">Tax Benefits (Year 1)</h3>
+
+      {/* Passive Activity Status Banner */}
+      {ps && (
+        <div className={`px-3 py-2 rounded text-[11px] mb-4 ${
+          ps.isNonPassive
+            ? 'bg-accent-green-bg text-accent-green'
+            : 'bg-accent-amber-bg text-accent-amber'
+        }`}>
+          <span className="font-semibold">{ps.isNonPassive ? 'Non-Passive' : 'Passive'}</span>
+          {' — '}{ps.pathway}
+        </div>
+      )}
 
       {/* Depreciation Breakdown */}
       <div className="mb-3">
@@ -75,6 +88,14 @@ export default function TaxBenefitPanel({ metrics }: Props) {
         </span>
       </div>
 
+      {/* QBI Deduction */}
+      {tax.qbiDeduction > 0 && (
+        <div className="flex justify-between text-xs mb-1">
+          <span className="text-text-muted">QBI Deduction (20%)</span>
+          <span className="text-accent-green">-{formatCurrency(tax.qbiDeduction)}</span>
+        </div>
+      )}
+
       {/* Tax Savings or Tax Owed */}
       {tax.taxSavings > 0 ? (
         <>
@@ -102,17 +123,67 @@ export default function TaxBenefitPanel({ metrics }: Props) {
         </div>
       ) : null}
 
-      {/* Not material participation */}
-      {!tax.materialParticipation && tax.taxableIncome < 0 && (
+      {/* Passive loss without non-passive status */}
+      {!ps?.isNonPassive && tax.taxableIncome < 0 && tax.taxSavings === 0 && (
         <div className="mt-3 px-3 py-2 rounded bg-accent-amber-bg text-[11px] text-accent-amber">
-          Without material participation, this {formatCurrency(paperLoss)} paper loss is passive and will carry forward to offset future passive income.
+          This {formatCurrency(paperLoss)} paper loss is passive and will carry forward. Enable material participation{ps?.tier === 'long' ? ' and Real Estate Professional status' : ''} to offset W-2 income.
         </div>
       )}
 
-      {/* Material participation + significant paper loss */}
-      {tax.materialParticipation && paperLoss > 5000 && tax.taxSavings > 0 && (
+      {/* Non-passive + significant paper loss */}
+      {ps?.isNonPassive && paperLoss > 5000 && tax.taxSavings > 0 && (
         <div className="mt-3 px-3 py-2 rounded bg-accent-green-bg text-[11px] text-accent-green">
-          With material participation, this {formatCurrency(paperLoss)} paper loss offsets your W-2 income, generating {formatCurrency(tax.taxSavings)} in real tax savings.
+          {formatCurrency(paperLoss)} paper loss offsets W-2 income, generating {formatCurrency(tax.taxSavings)} in real tax savings.
+        </div>
+      )}
+
+      {/* Exit Analysis */}
+      {metrics.exitAnalysis && (
+        <div className="mt-4 pt-3 border-t border-border-default">
+          <div className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-2">
+            Exit Analysis (Year {metrics.exitAnalysis.is1031 ? '— 1031 Exchange' : ''})
+          </div>
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs">
+              <span className="text-text-muted">Projected Sale Price</span>
+              <span>{formatCurrency(metrics.exitAnalysis.salePrice)}</span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-text-muted">Selling Costs</span>
+              <span className="text-accent-red/70">-{formatCurrency(metrics.exitAnalysis.sellingCosts)}</span>
+            </div>
+            {metrics.exitAnalysis.loanPayoff > 0 && (
+              <div className="flex justify-between text-xs">
+                <span className="text-text-muted">Loan Payoff</span>
+                <span className="text-accent-red/70">-{formatCurrency(metrics.exitAnalysis.loanPayoff)}</span>
+              </div>
+            )}
+            {!metrics.exitAnalysis.is1031 && (
+              <>
+                {metrics.exitAnalysis.depreciationRecapture > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-text-muted">Depreciation Recapture (25%)</span>
+                    <span className="text-accent-red">-{formatCurrency(metrics.exitAnalysis.depreciationRecapture)}</span>
+                  </div>
+                )}
+                {metrics.exitAnalysis.capitalGainTax > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-text-muted">Capital Gains Tax</span>
+                    <span className="text-accent-red">-{formatCurrency(metrics.exitAnalysis.capitalGainTax)}</span>
+                  </div>
+                )}
+              </>
+            )}
+            <div className="flex justify-between text-xs font-semibold pt-1 border-t border-border-default">
+              <span>After-Tax Proceeds</span>
+              <span className="text-accent-green">{formatCurrency(metrics.exitAnalysis.afterTaxProceeds)}</span>
+            </div>
+          </div>
+          {metrics.exitAnalysis.is1031 && (
+            <div className="mt-2 px-2 py-1.5 rounded bg-accent-green-bg text-[10px] text-accent-green">
+              1031 exchange defers all depreciation recapture and capital gains taxes.
+            </div>
+          )}
         </div>
       )}
     </div>

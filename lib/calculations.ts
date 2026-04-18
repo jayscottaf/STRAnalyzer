@@ -7,6 +7,8 @@ import type {
   ProjectionYear,
   SensitivityCell,
   DealMetrics,
+  PassiveActivityStatus,
+  ExitAnalysis,
 } from './types';
 import {
   MACRS_5YR,
@@ -16,6 +18,11 @@ import {
   COST_SEG_ACCEL_PERSONAL_SPLIT,
   COST_SEG_ACCEL_LAND_SPLIT,
   THRESHOLDS,
+  DEPRECIATION_RECAPTURE_RATE,
+  LTCG_RATE_BY_BRACKET,
+  QBI_THRESHOLD,
+  QBI_PHASEOUT_RANGE,
+  QBI_RATE,
 } from './constants';
 
 // ============================================================
@@ -132,6 +139,7 @@ export function calculateExpenseBreakdown(
   const hoa = expenses.hoaMonthly * 12;
   const utilities = expenses.utilitiesMonthly * 12;
   const maintenance = grossRevenue * (expenses.maintenanceReservePct / 100);
+  const capex = property.purchasePrice * ((expenses.capexReservePct ?? 0) / 100);
   const propertyManagement = grossRevenue * (expenses.propertyManagementPct / 100);
   const supplies = expenses.suppliesMonthly * 12;
   const software = expenses.softwareMonthly * 12;
@@ -139,7 +147,7 @@ export function calculateExpenseBreakdown(
   const platformFees = grossRevenue * (inputs.revenue.platformFeePct / 100);
 
   const total =
-    propertyTax + insurance + hoa + utilities + maintenance +
+    propertyTax + insurance + hoa + utilities + maintenance + capex +
     propertyManagement + supplies + software + strPermit + platformFees;
 
   return {
@@ -148,6 +156,7 @@ export function calculateExpenseBreakdown(
     hoa,
     utilities,
     maintenance,
+    capex,
     propertyManagement,
     supplies,
     software,
@@ -318,6 +327,171 @@ export function calculateCostSegDepreciation(
   };
 }
 
+// ============================================================
+// Passive Activity Classification (3-tier)
+// ============================================================
+
+export function getPassiveActivityStatus(inputs: DealInputs): PassiveActivityStatus {
+  const avgStay = inputs.revenue.avgStayLength;
+  const { materialParticipation, significantPersonalServices, realEstateProfessional } = inputs.tax;
+
+  if (avgStay <= 7) {
+    // Tier 1: Not a rental activity under Reg. §1.469-1T(e)(3)(ii)(A)
+    return {
+      isRentalActivity: false,
+      isNonPassive: materialParticipation,
+      tier: 'short',
+      pathway: materialParticipation
+        ? 'Non-rental activity (avg stay ≤7 days) with material participation. Losses offset W-2 income.'
+        : 'Non-rental activity (avg stay ≤7 days) but no material participation. Losses are passive.',
+    };
+  }
+
+  if (avgStay <= 30 && significantPersonalServices) {
+    // Tier 2: Not a rental if significant personal services — Reg. §1.469-1T(e)(3)(ii)(B)
+    return {
+      isRentalActivity: false,
+      isNonPassive: materialParticipation,
+      tier: 'mid',
+      pathway: materialParticipation
+        ? 'Non-rental (significant personal services + avg stay ≤30 days) with material participation. Losses offset W-2.'
+        : 'Non-rental (significant personal services) but no material participation. Losses are passive.',
+    };
+  }
+
+  // Tier 3: Rental activity — per-se passive under IRC §469(c)(2)
+  const isNonPassive = realEstateProfessional && materialParticipation;
+  return {
+    isRentalActivity: true,
+    isNonPassive,
+    tier: avgStay <= 30 ? 'mid' : 'long',
+    pathway: isNonPassive
+      ? 'Real estate professional + material participation. Rental losses offset W-2 income.'
+      : 'Per-se passive rental activity (avg stay >7 days). Material participation alone is insufficient. Losses carry forward unless you qualify as a Real Estate Professional (750+ hrs, >50% of services).',
+  };
+}
+
+// ============================================================
+// QBI Deduction
+// ============================================================
+
+export function calculateQBI(
+  taxableRentalIncome: number,
+  w2Income: number,
+  filingStatus: 'single' | 'mfj',
+  isNonPassive: boolean,
+): number {
+  // QBI applies to trade-or-business income (non-rental or REPS status)
+  if (!isNonPassive || taxableRentalIncome <= 0) return 0;
+
+  const tentativeQBI = taxableRentalIncome * QBI_RATE;
+  const threshold = QBI_THRESHOLD[filingStatus];
+  const phaseout = QBI_PHASEOUT_RANGE[filingStatus];
+  const totalIncome = w2Income + taxableRentalIncome;
+
+  if (totalIncome <= threshold) return tentativeQBI;
+  if (totalIncome >= threshold + phaseout) return 0;
+
+  // Phase-out
+  const excess = totalIncome - threshold;
+  const reductionPct = excess / phaseout;
+  return tentativeQBI * (1 - reductionPct);
+}
+
+// ============================================================
+// IRR (Newton-Raphson)
+// ============================================================
+
+export function calculateIRR(cashFlows: number[], maxIterations = 100, tolerance = 0.0001): number | null {
+  // cashFlows[0] is initial investment (negative), rest are periodic returns
+  if (cashFlows.length < 2) return null;
+
+  let rate = 0.10; // initial guess
+
+  for (let i = 0; i < maxIterations; i++) {
+    let npv = 0;
+    let dnpv = 0;
+    for (let t = 0; t < cashFlows.length; t++) {
+      const denom = Math.pow(1 + rate, t);
+      npv += cashFlows[t] / denom;
+      if (t > 0) dnpv -= (t * cashFlows[t]) / Math.pow(1 + rate, t + 1);
+    }
+    if (Math.abs(dnpv) < 1e-10) break;
+    const newRate = rate - npv / dnpv;
+    if (Math.abs(newRate - rate) < tolerance) return newRate * 100;
+    rate = newRate;
+    if (rate < -1 || rate > 10) return null; // diverged
+  }
+  return rate * 100;
+}
+
+// ============================================================
+// Exit Analysis (Depreciation Recapture + Capital Gains)
+// ============================================================
+
+export function calculateExitAnalysis(
+  inputs: DealInputs,
+  accumulatedDepreciation: number,
+  schedule: AmortizationEntry[],
+  exitYear: number,
+): ExitAnalysis {
+  const appreciation = inputs.appreciationRate / 100;
+  const salePrice = inputs.property.purchasePrice * Math.pow(1 + appreciation, exitYear);
+  const sellingCosts = salePrice * (inputs.tax.sellingCostsPct / 100);
+  const loanPayoff = schedule.length > 0 ? getLoanBalanceAfterYear(schedule, exitYear) : 0;
+
+  const is1031 = inputs.tax.exchange1031;
+
+  if (is1031) {
+    return {
+      salePrice,
+      sellingCosts,
+      loanPayoff,
+      netSaleProceeds: salePrice - sellingCosts - loanPayoff,
+      accumulatedDepreciation,
+      depreciationRecapture: 0,
+      capitalGain: 0,
+      capitalGainTax: 0,
+      totalTaxOnSale: 0,
+      afterTaxProceeds: salePrice - sellingCosts - loanPayoff,
+      is1031: true,
+    };
+  }
+
+  const adjustedBasis = inputs.property.purchasePrice - accumulatedDepreciation;
+  const totalGain = Math.max(salePrice - sellingCosts - adjustedBasis, 0);
+
+  // Depreciation recapture taxed at 25%
+  const recaptureAmount = Math.min(accumulatedDepreciation, totalGain);
+  const depreciationRecapture = recaptureAmount * DEPRECIATION_RECAPTURE_RATE;
+
+  // Remaining gain taxed at LTCG rate
+  const capitalGain = Math.max(totalGain - recaptureAmount, 0);
+  const ltcgRate = LTCG_RATE_BY_BRACKET[inputs.tax.federalBracket] ?? 0.15;
+  const capitalGainTax = capitalGain * ltcgRate;
+
+  const totalTaxOnSale = depreciationRecapture + capitalGainTax;
+  const afterTaxProceeds = salePrice - sellingCosts - loanPayoff - totalTaxOnSale;
+
+  return {
+    salePrice,
+    sellingCosts,
+    loanPayoff,
+    netSaleProceeds: salePrice - sellingCosts - loanPayoff,
+    accumulatedDepreciation,
+    depreciationRecapture,
+    capitalGain,
+    capitalGainTax,
+    totalTaxOnSale,
+    afterTaxProceeds,
+    is1031: false,
+  };
+}
+
+// ============================================================
+// Tax Benefits (rewired with 3-tier passive activity)
+// ============================================================
+
 export function calculateTaxBenefits(
   inputs: DealInputs,
   noi: number,
@@ -329,6 +503,7 @@ export function calculateTaxBenefits(
 
   const basis = calculateDepreciableBasis(inputs.property.purchasePrice, inputs.property.landValuePct);
   const combinedRate = (inputs.tax.federalBracket + inputs.tax.stateTaxRate) / 100;
+  const passiveStatus = getPassiveActivityStatus(inputs);
 
   let depreciation: DepreciationBreakdown;
   if (inputs.tax.costSegEnabled) {
@@ -347,15 +522,29 @@ export function calculateTaxBenefits(
 
   const taxableIncome = noi - mortgageInterest - depreciation.total;
 
+  // QBI deduction (only on positive income when non-passive)
+  const qbiDeduction = inputs.tax.enabled
+    ? calculateQBI(
+        Math.max(taxableIncome, 0),
+        inputs.tax.w2Income,
+        inputs.tax.filingStatus ?? 'mfj',
+        passiveStatus.isNonPassive,
+      )
+    : 0;
+
   let taxSavings: number;
-  if (taxableIncome < 0 && inputs.tax.materialParticipation) {
+  if (taxableIncome < 0 && passiveStatus.isNonPassive) {
+    // Non-passive loss — offsets W-2 income
     taxSavings = Math.abs(taxableIncome) * combinedRate;
-  } else if (taxableIncome < 0) {
-    // Passive loss — carries forward, no current savings
-    taxSavings = 0;
+  } else if (taxableIncome < 0 && !passiveStatus.isNonPassive) {
+    // Passive loss — check if absorbed by other passive income
+    const passiveIncome = inputs.tax.passiveIncomeFromOtherProperties ?? 0;
+    const absorbable = Math.min(Math.abs(taxableIncome), passiveIncome);
+    taxSavings = absorbable * combinedRate;
   } else {
-    // Positive taxable income — tax owed
-    taxSavings = -(taxableIncome * combinedRate);
+    // Positive taxable income — tax owed (reduced by QBI)
+    const taxableAfterQBI = Math.max(taxableIncome - qbiDeduction, 0);
+    taxSavings = -(taxableAfterQBI * combinedRate);
   }
 
   const afterTaxCashFlow = cashFlow + taxSavings;
@@ -367,7 +556,8 @@ export function calculateTaxBenefits(
     taxSavings,
     afterTaxCashFlow,
     combinedRate,
-    materialParticipation: inputs.tax.materialParticipation,
+    passiveStatus,
+    qbiDeduction,
   };
 }
 
@@ -407,6 +597,16 @@ export function calculateProjection(
 
     const taxBenefits = calculateTaxBenefits(inputs, noi, netCashFlow, schedule, y);
 
+    // Total return: (cumulative cash flow + appreciation + principal paydown) / initial cash
+    const appreciationGain = propertyValue - inputs.property.purchasePrice;
+    const loanAmountInitial = inputs.financing.loanType === 'cash'
+      ? 0
+      : inputs.property.purchasePrice * (1 - inputs.financing.downPaymentPct / 100);
+    const principalPaydown = loanAmountInitial - loanBalance;
+    const totalReturn = cashInvested > 0
+      ? ((cumulativeCashFlow + appreciationGain + principalPaydown) / cashInvested) * 100
+      : 0;
+
     const projection: ProjectionYear = {
       year: y,
       grossRevenue,
@@ -419,6 +619,7 @@ export function calculateProjection(
       loanBalance,
       equity,
       cumulativeCashFlow,
+      totalReturn,
     };
 
     if (taxBenefits) {
@@ -589,6 +790,7 @@ export function calculateAllMetrics(inputs: DealInputs): DealMetrics {
   const trueCocReturn = taxBenefits?.afterTaxCashFlow
     ? calculateCashOnCash(taxBenefits.afterTaxCashFlow, totalCashInvested)
     : null;
+  const passiveStatus = inputs.tax.enabled ? getPassiveActivityStatus(inputs) : null;
 
   // Projection
   const projection = calculateProjection(
@@ -600,6 +802,48 @@ export function calculateAllMetrics(inputs: DealInputs): DealMetrics {
     totalCashInvested,
     schedule,
   );
+
+  // Exit Analysis & IRR
+  const exitYear = inputs.tax.exitYear ?? 5;
+  let accumulatedDepreciation = 0;
+  if (inputs.tax.enabled) {
+    for (let y = 1; y <= exitYear; y++) {
+      const basis = calculateDepreciableBasis(property.purchasePrice, property.landValuePct);
+      if (inputs.tax.costSegEnabled) {
+        accumulatedDepreciation += calculateCostSegDepreciation(
+          basis, y, inputs.tax.bonusDepreciationRate, inputs.tax.acceleratedPct,
+        ).total;
+      } else {
+        accumulatedDepreciation += calculateStandardDepreciation(basis, y);
+      }
+    }
+  }
+
+  const exitSchedule = financing.loanType === 'cash'
+    ? []
+    : generateAmortizationSchedule(loanAmount, financing.interestRate, financing.loanTerm, exitYear * 12);
+
+  const exitAnalysis = inputs.tax.enabled
+    ? calculateExitAnalysis(inputs, accumulatedDepreciation, exitSchedule, exitYear)
+    : null;
+
+  // IRR: initial investment (negative) + annual cash flows + terminal value in exit year
+  const irrCashFlows = [-totalCashInvested];
+  for (let y = 0; y < projection.length; y++) {
+    const cf = inputs.tax.enabled && projection[y].afterTaxCashFlow !== undefined
+      ? projection[y].afterTaxCashFlow!
+      : projection[y].netCashFlow;
+    if (y === exitYear - 1 && exitAnalysis) {
+      irrCashFlows.push(cf + exitAnalysis.afterTaxProceeds);
+    } else if (y < exitYear) {
+      irrCashFlows.push(cf);
+    }
+  }
+  const irr = calculateIRR(irrCashFlows);
+
+  // Total Return at exit year
+  const exitProjection = projection.find((p) => p.year === exitYear);
+  const totalReturnPct = exitProjection?.totalReturn ?? null;
 
   // Sensitivity Grid
   const sensitivityGrid = calculateSensitivityGrid(inputs, totalCashInvested, annualDebtService);
@@ -628,6 +872,10 @@ export function calculateAllMetrics(inputs: DealInputs): DealMetrics {
     revpar,
     taxBenefits,
     trueCocReturn,
+    passiveStatus,
+    irr,
+    totalReturnPct,
+    exitAnalysis,
     projection,
     sensitivityGrid,
     amortizationSchedule: schedule,

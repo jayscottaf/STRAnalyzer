@@ -32,7 +32,24 @@ export const THRESHOLDS = {
   monthlyCashFlow: { good: 500, marginal: 0 },
   breakEvenOccupancy: { good: 55, marginal: 75 }, // lower is better
   grossYield: { good: 10, marginal: 7 },
+  irr: { good: 15, marginal: 8 },
+  totalReturn: { good: 100, marginal: 50 },
 } as const;
+
+// Tax constants
+export const DEPRECIATION_RECAPTURE_RATE = 0.25; // 25% on accumulated depreciation
+export const LTCG_RATE_BY_BRACKET: Record<number, number> = {
+  10: 0,
+  12: 0,
+  22: 0.15,
+  24: 0.15,
+  32: 0.15,
+  35: 0.15,
+  37: 0.20,
+};
+export const QBI_THRESHOLD = { single: 191950, mfj: 383900 }; // 2024 thresholds
+export const QBI_PHASEOUT_RANGE = { single: 50000, mfj: 100000 };
+export const QBI_RATE = 0.20;
 
 // Seasonality presets
 export const SEASONALITY_PRESETS: Record<string, number[]> = {
@@ -111,6 +128,7 @@ export const DEFAULT_INPUTS: DealInputs = {
     hoaMonthly: 0,
     utilitiesMonthly: 200,
     maintenanceReservePct: 1.5,
+    capexReservePct: 1,
     propertyManagementPct: 0,
     suppliesMonthly: 150,
     softwareMonthly: 100,
@@ -129,6 +147,12 @@ export const DEFAULT_INPUTS: DealInputs = {
     acceleratedPct: 30,
     bonusDepreciationRate: 100,
     materialParticipation: true,
+    significantPersonalServices: false,
+    realEstateProfessional: false,
+    passiveIncomeFromOtherProperties: 0,
+    exitYear: 5,
+    sellingCostsPct: 7,
+    filingStatus: 'mfj',
   },
   appreciationRate: 3,
 };

@@ -98,6 +98,13 @@ Key Metrics:
 - DSCR: ${isFinite(metrics.dscr) ? metrics.dscr.toFixed(2) : 'N/A (cash)'}
 - NOI: $${Math.round(metrics.noi).toLocaleString()}
 - Break-even occupancy: ${metrics.breakEvenOccupancy.toFixed(1)}%
+- IRR (w/ exit): ${metrics.irr !== null ? metrics.irr.toFixed(1) + '%' : 'N/A'}
+- 5yr Total Return: ${metrics.totalReturnPct !== null ? metrics.totalReturnPct.toFixed(1) + '%' : 'N/A'}
+
+Passive Activity Status: ${metrics.passiveStatus?.pathway ?? 'Not analyzed'}
+Exit Assumptions: Year ${inputs.tax.exitYear ?? 5}, ${inputs.tax.sellingCostsPct ?? 7}% selling costs${inputs.tax.exchange1031 ? ', 1031 exchange planned' : ''}
+${metrics.exitAnalysis ? `After-tax exit proceeds: $${Math.round(metrics.exitAnalysis.afterTaxProceeds).toLocaleString()}` : ''}
+Appreciation assumption: ${inputs.appreciationRate}%/yr
 
 5-Year Projection: ${JSON.stringify(projection5yr)}
 
