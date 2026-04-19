@@ -1,4 +1,4 @@
-import type { DealInputs } from './types';
+import type { DealInputs, Strategy } from './types';
 
 // MACRS depreciation tables
 export const MACRS_5YR = [0.2000, 0.3200, 0.1920, 0.1152, 0.1152, 0.0576];
@@ -91,7 +91,16 @@ export const PLATFORM_OPTIONS = [
   { value: 'direct_platforms', label: 'Direct + Platforms' },
 ] as const;
 
+export const STRATEGIES: { value: Strategy; label: string; icon: string }[] = [
+  { value: 'str', label: 'STR', icon: '🏠' },
+  { value: 'ltr', label: 'LTR', icon: '🔑' },
+  { value: 'flip', label: 'Flip', icon: '🔨' },
+  { value: 'brrrr', label: 'BRRRR', icon: '♻️' },
+  { value: 'wholesale', label: 'Wholesale', icon: '📝' },
+];
+
 export const DEFAULT_INPUTS: DealInputs = {
+  activeStrategy: 'str',
   property: {
     market: '',
     propertyType: 'Cabin',
@@ -156,4 +165,48 @@ export const DEFAULT_INPUTS: DealInputs = {
   },
   appreciationRate: 3,
   notes: '',
+  ltr: {
+    monthlyRent: 2800,
+    vacancyRatePct: 5,
+    annualRentGrowth: 3,
+    leaseTermMonths: 12,
+    managementFeePct: 0,
+  },
+  flip: {
+    arv: 550000,
+    renovationBudget: 60000,
+    renoTimelineMonths: 4,
+    totalHoldMonths: 6,
+    financingType: 'hard_money',
+    hardMoneyRate: 12,
+    hardMoneyPoints: 2,
+    hardMoneyTermMonths: 12,
+    sellingCostsPct: 8,
+    contingencyPct: 10,
+  },
+  brrrr: {
+    arv: 550000,
+    renovationBudget: 60000,
+    renoTimelineMonths: 4,
+    hardMoneyRate: 12,
+    hardMoneyPoints: 2,
+    hardMoneyTermMonths: 12,
+    seasoningMonths: 6,
+    refiLTV: 75,
+    refiRate: 7.0,
+    refiTermYears: 30,
+    refiClosingCostsPct: 2.5,
+    monthlyRent: 2800,
+    vacancyRatePct: 5,
+    annualRentGrowth: 3,
+    managementFeePct: 0,
+  },
+  wholesale: {
+    arv: 550000,
+    renovationEstimate: 60000,
+    assignmentFee: 15000,
+    earnestMoney: 2500,
+    closeTimelineDays: 30,
+    maoDiscountPct: 70,
+  },
 };

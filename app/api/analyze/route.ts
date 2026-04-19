@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { DealInputs, DealMetrics } from '@/lib/types';
+import type { DealInputs, DealMetrics, Strategy } from '@/lib/types';
 
 // Lazy-initialize OpenAI client — NEVER at module level or build fails
 function getOpenAI() {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'OpenAI API key not configured. Set OPENAI_API_KEY in .env.local' }, { status: 500 });
   }
 
-  let body: { inputs: DealInputs; metrics: DealMetrics };
+  let body: { inputs: DealInputs; metrics: DealMetrics; strategy?: Strategy };
   try {
     body = await request.json();
   } catch {
@@ -41,15 +41,34 @@ export async function POST(request: NextRequest) {
   }
 
   const { inputs, metrics } = body;
+  const strategy: Strategy = body.strategy ?? inputs.activeStrategy ?? 'str';
 
-  const systemPrompt = `You are an expert short-term rental (STR) investor, underwriter, and CPA with 20+ years of experience. You analyze STR deals with precision and honesty. Never sugarcoat — if a deal is bad, say so clearly.
+  const roleByStrategy: Record<Strategy, string> = {
+    str: 'expert short-term rental (STR) investor, underwriter, and CPA with 20+ years of experience analyzing vacation rental and corporate STR deals',
+    ltr: 'expert long-term rental investor and CPA with deep knowledge of buy-and-hold strategies, tenant screening, and rental market analysis',
+    flip: 'expert fix-and-flip investor and contractor with 20+ years of renovation and resale experience, including ARV comps, reno budgeting, and market timing',
+    brrrr: 'expert BRRRR (Buy, Rehab, Rent, Refinance, Repeat) investor who understands both the fix-and-flip acquisition phase and the long-term rental operation phase, plus cash-out refinance mechanics',
+    wholesale: 'expert wholesaler with deep knowledge of off-market deal acquisition, MAO calculations, buyer list management, and contract assignment mechanics',
+  };
+
+  const strategyFocus: Record<Strategy, string> = {
+    str: 'ADR/occupancy realism, seasonality, market saturation, regulatory risk, and tax strategy (material participation + 7-day rule)',
+    ltr: 'rent comps, tenant quality, vacancy realism, 1%/2% rule, price-to-rent ratio, neighborhood stability, and long-term appreciation',
+    flip: 'ARV accuracy, renovation scope realism, 70% rule check, market holding risk, contractor assumptions, and short-term tax impact',
+    brrrr: 'all-in cost vs ARV, refi feasibility and LTV limits, seasoning risk, post-refi cash flow, and cash-left-in-deal optimization',
+    wholesale: 'MAO vs asking price spread, buyer list availability, market fit for assignment, earnest money risk, and 70% rule adherence',
+  };
+
+  const systemPrompt = `You are an ${roleByStrategy[strategy]}. You analyze deals with precision and honesty. Never sugarcoat — if a deal is bad, say so clearly.
+
+Focus on: ${strategyFocus[strategy]}.
 
 You MUST respond with valid JSON only. No markdown, no explanation outside JSON. Use this exact shape:
 {
-  "market_assessment": "string - analysis of the market/location",
-  "revenue_validation": "string - assessment of revenue assumptions (ADR, occupancy)",
-  "deal_quality": "string - overall deal quality analysis",
-  "tax_strategy": "string or null - tax strategy analysis if tax data provided, null otherwise",
+  "market_assessment": "string - analysis of the market/location for this strategy",
+  "revenue_validation": "string - assessment of revenue/profit assumptions specific to ${strategy.toUpperCase()}",
+  "deal_quality": "string - overall deal quality analysis for ${strategy.toUpperCase()} strategy",
+  "tax_strategy": "string or null - tax strategy analysis if relevant, null otherwise",
   "red_flags": ["string array of concerns"],
   "green_flags": ["string array of positives"],
   "verdict": "STRONG BUY | BUY | MARGINAL | PASS",
@@ -77,7 +96,42 @@ Tax Strategy Enabled:
 - After-tax cash flow: $${Math.round(metrics.taxBenefits?.afterTaxCashFlow ?? 0).toLocaleString()}`
     : 'Tax analysis not enabled.';
 
-  const userPrompt = `Analyze this STR deal:
+  // Strategy-specific input context
+  const strategyInputs: Record<Strategy, string> = {
+    str: `Strategy: SHORT-TERM RENTAL (STR)
+- ADR: $${inputs.revenue.adr}, Occupancy: ${inputs.revenue.occupancyRate}%, Avg stay: ${inputs.revenue.avgStayLength} nights
+- Platform: ${inputs.revenue.platform}, fee: ${inputs.revenue.platformFeePct}%
+- Projected gross revenue: $${Math.round(metrics.grossRevenue).toLocaleString()}/yr`,
+    ltr: `Strategy: LONG-TERM RENTAL (LTR)
+- Monthly rent: $${inputs.ltr.monthlyRent.toLocaleString()}
+- Vacancy rate: ${inputs.ltr.vacancyRatePct}%
+- Annual rent growth: ${inputs.ltr.annualRentGrowth}%
+- Management fee: ${inputs.ltr.managementFeePct}%
+- Lease term: ${inputs.ltr.leaseTermMonths} months`,
+    flip: `Strategy: FIX & FLIP
+- ARV (after repair value): $${inputs.flip.arv.toLocaleString()}
+- Renovation budget: $${inputs.flip.renovationBudget.toLocaleString()} (+${inputs.flip.contingencyPct}% contingency)
+- Reno timeline: ${inputs.flip.renoTimelineMonths} months, total hold: ${inputs.flip.totalHoldMonths} months
+- Financing: ${inputs.flip.financingType}${inputs.flip.financingType === 'hard_money' ? ` at ${inputs.flip.hardMoneyRate}% + ${inputs.flip.hardMoneyPoints} points` : ''}
+- Selling costs: ${inputs.flip.sellingCostsPct}%`,
+    brrrr: `Strategy: BRRRR (Buy, Rehab, Rent, Refinance)
+- ARV: $${inputs.brrrr.arv.toLocaleString()}, Reno: $${inputs.brrrr.renovationBudget.toLocaleString()}
+- Hard money: ${inputs.brrrr.hardMoneyRate}% + ${inputs.brrrr.hardMoneyPoints} points for ${inputs.brrrr.hardMoneyTermMonths} months
+- Seasoning period: ${inputs.brrrr.seasoningMonths} months before refi
+- Refi: ${inputs.brrrr.refiLTV}% LTV of ARV at ${inputs.brrrr.refiRate}% for ${inputs.brrrr.refiTermYears}yr
+- Monthly rent post-refi: $${inputs.brrrr.monthlyRent.toLocaleString()}`,
+    wholesale: `Strategy: WHOLESALE (Contract Assignment)
+- ARV: $${inputs.wholesale.arv.toLocaleString()}
+- Renovation estimate (for end buyer): $${inputs.wholesale.renovationEstimate.toLocaleString()}
+- Assignment fee (your profit): $${inputs.wholesale.assignmentFee.toLocaleString()}
+- MAO discount: ${inputs.wholesale.maoDiscountPct}%
+- Earnest money: $${inputs.wholesale.earnestMoney.toLocaleString()}
+- Close timeline: ${inputs.wholesale.closeTimelineDays} days`,
+  };
+
+  const userPrompt = `Analyze this ${strategy.toUpperCase()} deal:
+
+${strategyInputs[strategy]}
 
 Property: ${inputs.property.propertyType} in ${inputs.property.market || 'unspecified market'}
 - ${inputs.property.bedrooms}bd/${inputs.property.bathrooms}ba, ${inputs.property.sqft} sqft, built ${inputs.property.yearBuilt}

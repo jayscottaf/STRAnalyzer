@@ -24,6 +24,16 @@ function dealReducer(state: DealInputs, action: DealAction): DealInputs {
       return { ...state, appreciationRate: action.payload };
     case 'UPDATE_NOTES':
       return { ...state, notes: action.payload };
+    case 'UPDATE_LTR':
+      return { ...state, ltr: { ...state.ltr, ...action.payload } };
+    case 'UPDATE_FLIP':
+      return { ...state, flip: { ...state.flip, ...action.payload } };
+    case 'UPDATE_BRRRR':
+      return { ...state, brrrr: { ...state.brrrr, ...action.payload } };
+    case 'UPDATE_WHOLESALE':
+      return { ...state, wholesale: { ...state.wholesale, ...action.payload } };
+    case 'SET_STRATEGY':
+      return { ...state, activeStrategy: action.payload };
     case 'LOAD_ANALYSIS':
       return action.payload;
     case 'RESET_TO_DEFAULTS':

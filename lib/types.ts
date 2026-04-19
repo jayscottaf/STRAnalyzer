@@ -2,6 +2,8 @@
 // STR Deal Analyzer — TypeScript Interfaces
 // ============================================================
 
+export type Strategy = 'str' | 'ltr' | 'flip' | 'brrrr' | 'wholesale';
+
 export interface PropertyInputs {
   market: string;
   propertyType: string;
@@ -69,14 +71,74 @@ export interface TaxInputs {
   filingStatus: 'single' | 'mfj';
 }
 
+// ============================================================
+// Per-Strategy Inputs
+// ============================================================
+
+export interface LTRInputs {
+  monthlyRent: number;
+  vacancyRatePct: number;
+  annualRentGrowth: number;
+  leaseTermMonths: number;
+  managementFeePct: number;
+}
+
+export interface FlipInputs {
+  arv: number;
+  renovationBudget: number;
+  renoTimelineMonths: number;
+  totalHoldMonths: number;
+  financingType: 'cash' | 'conventional' | 'hard_money';
+  hardMoneyRate: number;
+  hardMoneyPoints: number;
+  hardMoneyTermMonths: number;
+  sellingCostsPct: number;
+  contingencyPct: number;
+}
+
+export interface BRRRRInputs {
+  // Acquisition + reno (flip-like)
+  arv: number;
+  renovationBudget: number;
+  renoTimelineMonths: number;
+  hardMoneyRate: number;
+  hardMoneyPoints: number;
+  hardMoneyTermMonths: number;
+  seasoningMonths: number;
+  // Refi terms
+  refiLTV: number;
+  refiRate: number;
+  refiTermYears: 15 | 20 | 30;
+  refiClosingCostsPct: number;
+  // Rental (LTR-like)
+  monthlyRent: number;
+  vacancyRatePct: number;
+  annualRentGrowth: number;
+  managementFeePct: number;
+}
+
+export interface WholesaleInputs {
+  arv: number;
+  renovationEstimate: number;
+  assignmentFee: number;
+  earnestMoney: number;
+  closeTimelineDays: number;
+  maoDiscountPct: number; // default 70 for 70% rule
+}
+
 export interface DealInputs {
+  activeStrategy: Strategy;
   property: PropertyInputs;
   financing: FinancingInputs;
-  revenue: RevenueInputs;
+  revenue: RevenueInputs;       // STR-specific, kept at top level for backward compat
   expenses: ExpenseInputs;
   tax: TaxInputs;
   appreciationRate: number;
   notes: string;
+  ltr: LTRInputs;
+  flip: FlipInputs;
+  brrrr: BRRRRInputs;
+  wholesale: WholesaleInputs;
 }
 
 export interface AmortizationEntry {
@@ -216,6 +278,124 @@ export interface DealMetrics {
   amortizationSchedule: AmortizationEntry[];
 }
 
+// ============================================================
+// Strategy-specific Metrics
+// ============================================================
+
+export interface LTRMetrics {
+  monthlyRent: number;
+  annualGrossRent: number;
+  vacancyLoss: number;
+  effectiveGrossIncome: number;
+  totalOperatingExpenses: number;
+  noi: number;
+  debtService: number;
+  annualCashFlow: number;
+  monthlyCashFlow: number;
+  totalCashInvested: number;
+  loanAmount: number;
+  ltv: number;
+  monthlyPayment: number;
+  cocReturn: number;
+  capRate: number;
+  dscr: number;
+  grm: number;                   // Gross Rent Multiplier
+  onePercentRule: boolean;       // monthly rent >= 1% of purchase price
+  twoPercentRule: boolean;
+  priceToRent: number;           // purchase / annual rent
+  taxBenefits: TaxBenefits | null;
+  trueCocReturn: number | null;
+  passiveStatus: PassiveActivityStatus | null;
+  irr: number | null;
+  totalReturnPct: number | null;
+  exitAnalysis: ExitAnalysis | null;
+  projection: ProjectionYear[];
+  amortizationSchedule: AmortizationEntry[];
+  expenseBreakdown: ExpenseBreakdown;
+}
+
+export interface FlipMetrics {
+  arv: number;
+  purchasePrice: number;
+  renovationBudget: number;
+  contingency: number;
+  totalHoldMonths: number;
+  loanAmount: number;
+  loanPoints: number;
+  totalInterestCost: number;
+  holdingCosts: number;
+  sellingCosts: number;
+  totalInvestment: number;
+  grossProfit: number;
+  netProfit: number;
+  afterTaxProfit: number;
+  roi: number;                   // profit / cash invested
+  profitMargin: number;          // profit / ARV
+  cashRequired: number;
+  pricePerSqftAfter: number;
+  maxAllowableOffer: number;     // 70% rule: ARV * 0.70 - reno
+  meetsSeventyRule: boolean;
+  holdingCostBreakdown: {
+    loanInterest: number;
+    propertyTax: number;
+    insurance: number;
+    utilities: number;
+    loanPoints: number;
+  };
+}
+
+export interface BRRRRMetrics {
+  // Phase 1 (acquisition + reno)
+  purchasePrice: number;
+  arv: number;
+  renovationBudget: number;
+  initialCashInvested: number;
+  hardMoneyLoan: number;
+  hardMoneyPoints: number;
+  phase1InterestCost: number;
+  // Refi
+  refiLoanAmount: number;        // ARV * refiLTV
+  refiCashOut: number;           // refi proceeds minus hard money payoff + reno
+  cashLeftInDeal: number;        // initial - refi cash out
+  allInCost: number;             // purchase + reno + interest + points + closing
+  refiMonthlyPayment: number;
+  // Post-refi (LTR mode)
+  monthlyRent: number;
+  monthlyCashFlow: number;
+  annualCashFlow: number;
+  postRefiCocReturn: number;     // often infinite if cash left = 0
+  postRefiDscr: number;
+  capRate: number;
+  isInfiniteReturn: boolean;
+  grm: number;
+  taxBenefits: TaxBenefits | null;
+  trueCocReturn: number | null;
+  projection: ProjectionYear[];
+  amortizationSchedule: AmortizationEntry[];
+}
+
+export interface WholesaleMetrics {
+  arv: number;
+  renovationEstimate: number;
+  maxAllowableOffer: number;     // MAO
+  askingPrice: number;
+  assignmentFee: number;
+  spreadVsAsking: number;        // MAO - asking (negative if asking too high)
+  earnestMoney: number;
+  roiOnEarnest: number;
+  netProfit: number;
+  afterTaxProfit: number;
+  meetsSeventyRule: boolean;
+  dealQuality: 'strong' | 'marginal' | 'weak';
+}
+
+export type StrategyMetrics =
+  | { kind: 'str'; data: DealMetrics }
+  | { kind: 'ltr'; data: LTRMetrics }
+  | { kind: 'flip'; data: FlipMetrics }
+  | { kind: 'brrrr'; data: BRRRRMetrics }
+  | { kind: 'wholesale'; data: WholesaleMetrics };
+
 export interface AIAnalysis {
   market_assessment: string;
   revenue_validation: string;
@@ -249,5 +429,10 @@ export type DealAction =
   | { type: 'UPDATE_TAX'; payload: Partial<TaxInputs> }
   | { type: 'UPDATE_APPRECIATION'; payload: number }
   | { type: 'UPDATE_NOTES'; payload: string }
+  | { type: 'UPDATE_LTR'; payload: Partial<LTRInputs> }
+  | { type: 'UPDATE_FLIP'; payload: Partial<FlipInputs> }
+  | { type: 'UPDATE_BRRRR'; payload: Partial<BRRRRInputs> }
+  | { type: 'UPDATE_WHOLESALE'; payload: Partial<WholesaleInputs> }
+  | { type: 'SET_STRATEGY'; payload: Strategy }
   | { type: 'LOAD_ANALYSIS'; payload: DealInputs }
   | { type: 'RESET_TO_DEFAULTS' };

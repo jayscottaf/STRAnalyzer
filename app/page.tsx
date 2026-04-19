@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import type { AIAnalysis } from '@/lib/types';
+import type { AIAnalysis, Strategy } from '@/lib/types';
 import { useDealInputs } from '@/lib/hooks/use-deal-inputs';
 import { useCalculations } from '@/lib/hooks/use-calculations';
 import { useAutoSave } from '@/lib/hooks/use-auto-save';
 import Header from '@/components/layout/header';
 import Sidebar from '@/components/layout/sidebar';
 import MobileDrawer from '@/components/layout/mobile-drawer';
+import StrategyTabs from '@/components/layout/strategy-tabs';
 import MetricsGrid from '@/components/dashboard/metrics-grid';
 import CashFlowBreakdown from '@/components/dashboard/cash-flow-breakdown';
 import TaxBenefitPanel from '@/components/dashboard/tax-benefit-panel';
@@ -24,11 +25,17 @@ import CompareMode from '@/components/dashboard/compare-mode';
 import PdfExport from '@/components/dashboard/pdf-export';
 import OfflineBanner from '@/components/layout/offline-banner';
 import InstallPrompt from '@/components/layout/install-prompt';
+import LTRDashboard from '@/components/dashboard/ltr-dashboard';
+import FlipDashboard from '@/components/dashboard/flip-dashboard';
+import BRRRRDashboard from '@/components/dashboard/brrrr-dashboard';
+import WholesaleDashboard from '@/components/dashboard/wholesale-dashboard';
+import CompareStrategies from '@/components/dashboard/compare-strategies';
 import { calculateTornado } from '@/lib/calculations';
+import { calculateLTRMetrics, calculateFlipMetrics, calculateBRRRRMetrics, calculateWholesaleMetrics } from '@/lib/calculations/index';
 
 export default function HomePage() {
   const { inputs, dispatch, errors, hydrated } = useDealInputs();
-  const metrics = useCalculations(inputs, hydrated);
+  const strMetrics = useCalculations(inputs, hydrated);
   useAutoSave(inputs, hydrated);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -37,14 +44,21 @@ export default function HomePage() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiCooldown, setAiCooldown] = useState(false);
 
+  const strategy = inputs.activeStrategy;
+
+  // Compute per-strategy metrics
+  const ltrMetrics = useMemo(() => hydrated ? calculateLTRMetrics(inputs) : null, [inputs, hydrated]);
+  const flipMetrics = useMemo(() => hydrated ? calculateFlipMetrics(inputs) : null, [inputs, hydrated]);
+  const brrrrMetrics = useMemo(() => hydrated ? calculateBRRRRMetrics(inputs) : null, [inputs, hydrated]);
+  const wholesaleMetrics = useMemo(() => hydrated ? calculateWholesaleMetrics(inputs) : null, [inputs, hydrated]);
+
   const tornadoData = useMemo(() => {
-    if (!metrics) return null;
+    if (!strMetrics || strategy !== 'str') return null;
     return calculateTornado(inputs);
-  }, [inputs, metrics]);
+  }, [inputs, strMetrics, strategy]);
 
   const runAnalysis = useCallback(async () => {
-    if (!metrics || aiLoading || aiCooldown) return;
-
+    if (aiLoading || aiCooldown) return;
     setAiLoading(true);
     setAiError(null);
 
@@ -52,7 +66,11 @@ export default function HomePage() {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inputs, metrics }),
+        body: JSON.stringify({
+          inputs,
+          strategy: activeTab === 'compare' ? inputs.activeStrategy : activeTab,
+          metrics: strMetrics,
+        }),
       });
 
       if (!res.ok) {
@@ -70,10 +88,28 @@ export default function HomePage() {
       setAiCooldown(true);
       setTimeout(() => setAiCooldown(false), 5000);
     }
-  }, [inputs, metrics, aiLoading, aiCooldown]);
+  }, [inputs, strMetrics, aiLoading, aiCooldown]);
 
-  // Loading state
-  if (!hydrated || !metrics) {
+  const handleStrategyChange = useCallback((s: Strategy | 'compare') => {
+    if (s === 'compare') {
+      dispatch({ type: 'SET_STRATEGY', payload: 'str' });
+      setActiveTab('compare');
+    } else {
+      dispatch({ type: 'SET_STRATEGY', payload: s });
+      setActiveTab(s);
+    }
+  }, [dispatch]);
+
+  const [activeTab, setActiveTab] = useState<Strategy | 'compare'>('str');
+
+  // Sync activeTab with actual strategy on mount
+  useMemo(() => {
+    if (hydrated && activeTab !== 'compare' && activeTab !== inputs.activeStrategy) {
+      setActiveTab(inputs.activeStrategy);
+    }
+  }, [hydrated, inputs.activeStrategy, activeTab]);
+
+  if (!hydrated || !strMetrics) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-bg-base">
         <div className="text-sm text-text-muted">Loading analyzer...</div>
@@ -92,12 +128,10 @@ export default function HomePage() {
       />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Desktop Sidebar */}
         <aside className="hidden lg:block w-80 shrink-0 bg-bg-surface border-r border-border-default overflow-y-auto">
           <Sidebar inputs={inputs} dispatch={dispatch} />
         </aside>
 
-        {/* Mobile Drawer */}
         <MobileDrawer
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
@@ -105,82 +139,140 @@ export default function HomePage() {
           dispatch={dispatch}
         />
 
-        {/* Main Content */}
         <main className="flex-1 overflow-y-auto relative">
-          <StickyKpiBar metrics={metrics} observeTargetId="main-kpi-grid" />
+          {/* Strategy tabs */}
+          <StrategyTabs active={activeTab} onChange={handleStrategyChange} />
+
+          {strategy === 'str' && activeTab === 'str' && (
+            <StickyKpiBar metrics={strMetrics} observeTargetId="main-kpi-grid" />
+          )}
 
           <div className="p-4 lg:p-6 space-y-4 lg:space-y-6 pb-24 lg:pb-6">
-          {/* Validation warnings */}
-          {errors.length > 0 && (
-            <div className="px-3 py-2 rounded-lg bg-accent-amber-bg border border-accent-amber/20 text-xs text-accent-amber">
-              <span className="font-semibold">Warnings:</span>{' '}
-              {errors.map((e) => e.message).join(' · ')}
-            </div>
-          )}
+            {errors.length > 0 && (
+              <div className="px-3 py-2 rounded-lg bg-accent-amber-bg border border-accent-amber/20 text-xs text-accent-amber">
+                <span className="font-semibold">Warnings:</span>{' '}
+                {errors.map((e) => e.message).join(' · ')}
+              </div>
+            )}
 
-          {/* Action Bar */}
-          <div className="flex flex-wrap gap-2">
-            <OfferSolver inputs={inputs} dispatch={dispatch} />
-            <CompareMode />
-            <PdfExport inputs={inputs} metrics={metrics} aiAnalysis={aiAnalysis} />
-          </div>
+            {/* Compare tab */}
+            {activeTab === 'compare' && (
+              <CompareStrategies
+                inputs={inputs}
+                onOpenStrategy={(s) => handleStrategyChange(s)}
+              />
+            )}
 
-          {/* Deal Score */}
-          <DealScore metrics={metrics} />
+            {/* STR Dashboard */}
+            {activeTab === 'str' && (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <OfferSolver inputs={inputs} dispatch={dispatch} />
+                  <CompareMode />
+                  <PdfExport inputs={inputs} metrics={strMetrics} aiAnalysis={aiAnalysis} />
+                </div>
 
-          {/* KPI Grid */}
-          <div id="main-kpi-grid">
-            <MetricsGrid metrics={metrics} />
-          </div>
+                <DealScore metrics={strMetrics} />
 
-          {/* Cash Flow Breakdown */}
-          <CashFlowBreakdown metrics={metrics} />
+                <div id="main-kpi-grid">
+                  <MetricsGrid metrics={strMetrics} />
+                </div>
 
-          {/* Tax Benefits */}
-          {inputs.tax.enabled && <TaxBenefitPanel metrics={metrics} />}
+                <CashFlowBreakdown metrics={strMetrics} />
 
-          {/* Tax Strategy Comparator */}
-          {inputs.tax.enabled && <TaxComparator inputs={inputs} />}
+                {inputs.tax.enabled && <TaxBenefitPanel metrics={strMetrics} />}
+                {inputs.tax.enabled && <TaxComparator inputs={inputs} />}
 
-          {/* Cash Flow Chart */}
-          {metrics.projection.length > 0 && (
-            <CashFlowChart
-              projection={metrics.projection}
-              taxEnabled={inputs.tax.enabled}
-            />
-          )}
+                {strMetrics.projection.length > 0 && (
+                  <CashFlowChart projection={strMetrics.projection} taxEnabled={inputs.tax.enabled} />
+                )}
 
-          {/* Sensitivity Grid */}
-          <SensitivityGrid
-            grid={metrics.sensitivityGrid}
-            baseOccupancy={inputs.revenue.occupancyRate}
-            baseAdr={inputs.revenue.adr}
-          />
+                <SensitivityGrid
+                  grid={strMetrics.sensitivityGrid}
+                  baseOccupancy={inputs.revenue.occupancyRate}
+                  baseAdr={inputs.revenue.adr}
+                />
 
-          {/* Tornado Chart */}
-          {tornadoData && <TornadoChart items={tornadoData} baseline={metrics.cocReturn} />}
+                {tornadoData && <TornadoChart items={tornadoData} baseline={strMetrics.cocReturn} />}
 
-          {/* 5-Year Projection */}
-          <ProjectionTable
-            metrics={metrics}
-            appreciationRate={inputs.appreciationRate}
-            taxEnabled={inputs.tax.enabled}
-            dispatch={dispatch}
-          />
+                <ProjectionTable
+                  metrics={strMetrics}
+                  appreciationRate={inputs.appreciationRate}
+                  taxEnabled={inputs.tax.enabled}
+                  dispatch={dispatch}
+                />
+              </>
+            )}
 
-          {/* AI Analysis */}
-          <AIAnalysisPanel
-            analysis={aiAnalysis}
-            loading={aiLoading}
-            error={aiError}
-            onAnalyze={runAnalysis}
-            cooldown={aiCooldown}
-          />
+            {/* LTR Dashboard */}
+            {activeTab === 'ltr' && ltrMetrics && (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <CompareMode />
+                  <PdfExport inputs={inputs} metrics={strMetrics} aiAnalysis={aiAnalysis} />
+                </div>
+                <LTRDashboard metrics={ltrMetrics} />
+                {inputs.tax.enabled && ltrMetrics.taxBenefits && (
+                  <div className="rounded-lg border border-border-default bg-bg-surface p-4">
+                    <h3 className="text-sm font-semibold mb-3">Tax Benefits (Year 1)</h3>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between"><span className="text-text-muted">Depreciation</span><span>${Math.round(ltrMetrics.taxBenefits.depreciation.total).toLocaleString()}</span></div>
+                      <div className="flex justify-between"><span className="text-text-muted">Mortgage Interest</span><span>${Math.round(ltrMetrics.taxBenefits.mortgageInterest).toLocaleString()}</span></div>
+                      <div className="flex justify-between font-semibold"><span>Taxable Income</span><span className={ltrMetrics.taxBenefits.taxableIncome < 0 ? 'text-accent-green' : 'text-accent-red'}>${Math.round(ltrMetrics.taxBenefits.taxableIncome).toLocaleString()}</span></div>
+                      <div className="flex justify-between"><span className="text-text-muted">Tax Savings</span><span className="text-accent-green">${Math.round(ltrMetrics.taxBenefits.taxSavings).toLocaleString()}</span></div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Flip Dashboard */}
+            {activeTab === 'flip' && flipMetrics && (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <CompareMode />
+                  <PdfExport inputs={inputs} metrics={strMetrics} aiAnalysis={aiAnalysis} />
+                </div>
+                <FlipDashboard metrics={flipMetrics} />
+              </>
+            )}
+
+            {/* BRRRR Dashboard */}
+            {activeTab === 'brrrr' && brrrrMetrics && (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <CompareMode />
+                  <PdfExport inputs={inputs} metrics={strMetrics} aiAnalysis={aiAnalysis} />
+                </div>
+                <BRRRRDashboard metrics={brrrrMetrics} />
+              </>
+            )}
+
+            {/* Wholesale Dashboard */}
+            {activeTab === 'wholesale' && wholesaleMetrics && (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <CompareMode />
+                  <PdfExport inputs={inputs} metrics={strMetrics} aiAnalysis={aiAnalysis} />
+                </div>
+                <WholesaleDashboard metrics={wholesaleMetrics} />
+              </>
+            )}
+
+            {/* AI Analysis — available on all strategy tabs */}
+            {activeTab !== 'compare' && (
+              <AIAnalysisPanel
+                analysis={aiAnalysis}
+                loading={aiLoading}
+                error={aiError}
+                onAnalyze={runAnalysis}
+                cooldown={aiCooldown}
+              />
+            )}
           </div>
         </main>
       </div>
 
-      {/* Mobile floating button — 48px touch target */}
       <button
         type="button"
         onClick={() => setDrawerOpen(true)}
