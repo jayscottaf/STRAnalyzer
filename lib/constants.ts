@@ -66,12 +66,20 @@ export const MONTH_LABELS = [
 ];
 
 export const PROPERTY_TYPES = [
+  'Single Family',
+  'Multi-Family (2-4)',
+  'Condo / Townhome',
   'Cabin',
   'Beach House',
   'Lake House',
-  'Condo',
-  'Urban Apartment',
   'Mountain Home',
+  'Urban Apartment',
+  'Duplex',
+  'Triplex',
+  'Fourplex',
+  'Manufactured Home',
+  'Commercial Mixed-Use',
+  'Vacant Land',
   'Other',
 ] as const;
 
@@ -103,7 +111,7 @@ export const DEFAULT_INPUTS: DealInputs = {
   activeStrategy: 'str',
   property: {
     market: '',
-    propertyType: 'Cabin',
+    propertyType: 'Single Family',
     bedrooms: 3,
     bathrooms: 2,
     sqft: 1800,

@@ -24,7 +24,7 @@ const SYSTEM_PROMPT = `You extract STR (short-term rental) property details from
 Return ONLY valid JSON with this exact shape:
 {
   "market": string | null,
-  "propertyType": one of ["Cabin", "Beach House", "Lake House", "Condo", "Urban Apartment", "Mountain Home", "Other"] | null,
+  "propertyType": one of ["Single Family", "Multi-Family (2-4)", "Condo / Townhome", "Cabin", "Beach House", "Lake House", "Mountain Home", "Urban Apartment", "Duplex", "Triplex", "Fourplex", "Manufactured Home", "Commercial Mixed-Use", "Vacant Land", "Other"] | null,
   "bedrooms": number | null,
   "bathrooms": number | null,
   "sqft": number | null,
@@ -46,7 +46,9 @@ Rules:
 - Response must be valid JSON. No markdown, no commentary.`;
 
 const VALID_PROPERTY_TYPES = new Set([
-  'Cabin', 'Beach House', 'Lake House', 'Condo', 'Urban Apartment', 'Mountain Home', 'Other',
+  'Single Family', 'Multi-Family (2-4)', 'Condo / Townhome', 'Cabin', 'Beach House',
+  'Lake House', 'Mountain Home', 'Urban Apartment', 'Duplex', 'Triplex', 'Fourplex',
+  'Manufactured Home', 'Commercial Mixed-Use', 'Vacant Land', 'Other',
 ]);
 
 interface ExtractBody {
