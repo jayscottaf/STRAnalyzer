@@ -102,12 +102,11 @@ export default function HomePage() {
 
   const [activeTab, setActiveTab] = useState<Strategy | 'compare'>('str');
 
-  // Sync activeTab with actual strategy on mount
-  useMemo(() => {
-    if (hydrated && activeTab !== 'compare' && activeTab !== inputs.activeStrategy) {
-      setActiveTab(inputs.activeStrategy);
-    }
-  }, [hydrated, inputs.activeStrategy, activeTab]);
+  // Sync activeTab when strategy changes from sidebar selector
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  if (hydrated && activeTab !== 'compare' && activeTab !== inputs.activeStrategy) {
+    setActiveTab(inputs.activeStrategy);
+  }
 
   if (!hydrated || !strMetrics) {
     return (

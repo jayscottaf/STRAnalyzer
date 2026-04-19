@@ -1,6 +1,6 @@
 'use client';
 
-import type { ExpenseInputs as ExpenseInputsType, PropertyInputs } from '@/lib/types';
+import type { ExpenseInputs as ExpenseInputsType, PropertyInputs, Strategy } from '@/lib/types';
 import { formatCurrency } from '@/lib/format';
 import InputField from './input-field';
 
@@ -8,18 +8,22 @@ interface Props {
   values: ExpenseInputsType;
   property: PropertyInputs;
   onChange: (updates: Partial<ExpenseInputsType>) => void;
+  strategy?: Strategy;
 }
 
-export default function ExpenseInputs({ values, property, onChange }: Props) {
+export default function ExpenseInputs({ values, property, onChange, strategy = 'str' }: Props) {
+  const isSTR = strategy === 'str';
+  const isRental = strategy === 'str' || strategy === 'ltr' || strategy === 'brrrr';
+
   const monthlyFixed =
     (property.purchasePrice * (values.propertyTaxRate / 100)) / 12 +
     (property.purchasePrice * (values.insuranceRate / 100)) / 12 +
     (property.purchasePrice * ((values.capexReservePct ?? 0) / 100)) / 12 +
     values.hoaMonthly +
     values.utilitiesMonthly +
-    values.suppliesMonthly +
-    values.softwareMonthly +
-    values.strPermitYearly / 12;
+    (isSTR ? values.suppliesMonthly : 0) +
+    (isSTR ? values.softwareMonthly : 0) +
+    (isSTR ? values.strPermitYearly / 12 : 0);
 
   return (
     <div>
@@ -42,7 +46,7 @@ export default function ExpenseInputs({ values, property, onChange }: Props) {
         min={0}
         max={5}
         step={0.1}
-        tooltip="STR insurance runs 0.4-0.8% of value"
+        tooltip={isSTR ? 'STR insurance runs 0.4-0.8% of value' : 'Landlord insurance typically 0.3-0.5% of value'}
       />
 
       <InputField
@@ -61,6 +65,7 @@ export default function ExpenseInputs({ values, property, onChange }: Props) {
         prefix="$"
         min={0}
         step={25}
+        tooltip={!isSTR && isRental ? 'For LTR, tenant often pays utilities. Enter your portion only.' : undefined}
       />
 
       <InputField
@@ -81,51 +86,62 @@ export default function ExpenseInputs({ values, property, onChange }: Props) {
         min={0}
         max={5}
         step={0.25}
-        tooltip="Capital expenditures: roof, HVAC, appliances, furnishing refresh. Separate from routine maintenance. 0.5-1.5% of value is typical."
+        tooltip="Roof, HVAC, appliances, furnishing refresh. 0.5-1.5% of value is typical."
       />
 
-      <InputField
-        label="Property Management"
-        value={values.propertyManagementPct}
-        onChange={(v) => onChange({ propertyManagementPct: v as number })}
-        suffix="%"
-        min={0}
-        max={50}
-        step={1}
-        tooltip="Setting PM above 0% may jeopardize material participation for tax purposes."
-      />
-      {values.propertyManagementPct > 0 && (
-        <p className="text-[10px] text-accent-amber -mt-2 mb-3">
-          PM fee may affect material participation status for tax deductions
-        </p>
+      {isRental && (
+        <>
+          <InputField
+            label="Property Management"
+            value={values.propertyManagementPct}
+            onChange={(v) => onChange({ propertyManagementPct: v as number })}
+            suffix="%"
+            min={0}
+            max={50}
+            step={1}
+            tooltip={isSTR
+              ? 'STR PM: 15-25%. Setting PM above 0% may jeopardize material participation.'
+              : 'LTR PM: 8-10% of gross rent. Self-manage = 0%.'}
+          />
+          {values.propertyManagementPct > 0 && isSTR && (
+            <p className="text-[10px] text-accent-amber -mt-2 mb-3">
+              PM fee may affect material participation status for tax deductions
+            </p>
+          )}
+        </>
       )}
 
-      <InputField
-        label="Supplies / Month"
-        value={values.suppliesMonthly}
-        onChange={(v) => onChange({ suppliesMonthly: v as number })}
-        prefix="$"
-        min={0}
-        step={25}
-      />
+      {/* STR-only fields */}
+      {isSTR && (
+        <>
+          <InputField
+            label="Supplies / Month"
+            value={values.suppliesMonthly}
+            onChange={(v) => onChange({ suppliesMonthly: v as number })}
+            prefix="$"
+            min={0}
+            step={25}
+          />
 
-      <InputField
-        label="Software / Month"
-        value={values.softwareMonthly}
-        onChange={(v) => onChange({ softwareMonthly: v as number })}
-        prefix="$"
-        min={0}
-        step={25}
-      />
+          <InputField
+            label="Software / Month"
+            value={values.softwareMonthly}
+            onChange={(v) => onChange({ softwareMonthly: v as number })}
+            prefix="$"
+            min={0}
+            step={25}
+          />
 
-      <InputField
-        label="STR Permit / Year"
-        value={values.strPermitYearly}
-        onChange={(v) => onChange({ strPermitYearly: v as number })}
-        prefix="$"
-        min={0}
-        step={50}
-      />
+          <InputField
+            label="STR Permit / Year"
+            value={values.strPermitYearly}
+            onChange={(v) => onChange({ strPermitYearly: v as number })}
+            prefix="$"
+            min={0}
+            step={50}
+          />
+        </>
+      )}
 
       <InputField
         label="Annual Expense Growth"

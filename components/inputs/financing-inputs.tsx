@@ -1,6 +1,6 @@
 'use client';
 
-import type { FinancingInputs as FinancingInputsType, PropertyInputs } from '@/lib/types';
+import type { FinancingInputs as FinancingInputsType, PropertyInputs, Strategy } from '@/lib/types';
 import { LOAN_TYPES, LOAN_TERMS } from '@/lib/constants';
 import { formatCurrency } from '@/lib/format';
 import InputField from './input-field';
@@ -9,9 +9,12 @@ interface Props {
   values: FinancingInputsType;
   property: PropertyInputs;
   onChange: (updates: Partial<FinancingInputsType>) => void;
+  strategy?: Strategy;
 }
 
-export default function FinancingInputs({ values, property, onChange }: Props) {
+export default function FinancingInputs({ values, property, onChange, strategy = 'str' }: Props) {
+  const showFurnishing = strategy === 'str' || strategy === 'ltr';
+  const showReserves = strategy === 'str' || strategy === 'ltr' || strategy === 'brrrr';
   const isCash = values.loanType === 'cash';
   const loanAmount = isCash
     ? 0
@@ -89,25 +92,29 @@ export default function FinancingInputs({ values, property, onChange }: Props) {
         step={0.5}
       />
 
-      <InputField
-        label="Furnishing Budget"
-        value={values.furnishingBudget}
-        onChange={(v) => onChange({ furnishingBudget: v as number })}
-        prefix="$"
-        min={0}
-        step={1000}
-      />
+      {showFurnishing && (
+        <InputField
+          label="Furnishing Budget"
+          value={values.furnishingBudget}
+          onChange={(v) => onChange({ furnishingBudget: v as number })}
+          prefix="$"
+          min={0}
+          step={1000}
+        />
+      )}
 
-      <InputField
-        label="Cash Reserves"
-        value={values.cashReserveMonths}
-        onChange={(v) => onChange({ cashReserveMonths: v as number })}
-        suffix="months"
-        min={0}
-        max={24}
-        step={1}
-        tooltip="Months of PITIA held in reserve. Lenders typically require 3-6."
-      />
+      {showReserves && (
+        <InputField
+          label="Cash Reserves"
+          value={values.cashReserveMonths}
+          onChange={(v) => onChange({ cashReserveMonths: v as number })}
+          suffix="months"
+          min={0}
+          max={24}
+          step={1}
+          tooltip="Months of PITIA held in reserve. Lenders typically require 3-6."
+        />
+      )}
     </div>
   );
 }
