@@ -1,6 +1,6 @@
 'use client';
 
-import type { PropertyInputs as PropertyInputsType } from '@/lib/types';
+import type { PropertyInputs as PropertyInputsType, DealAction } from '@/lib/types';
 import { PROPERTY_TYPES } from '@/lib/constants';
 import InputField from './input-field';
 import ListingExtractor from './listing-extractor';
@@ -8,12 +8,13 @@ import ListingExtractor from './listing-extractor';
 interface Props {
   values: PropertyInputsType;
   onChange: (updates: Partial<PropertyInputsType>) => void;
+  dispatch?: React.Dispatch<DealAction>;
 }
 
-export default function PropertyInputs({ values, onChange }: Props) {
+export default function PropertyInputs({ values, onChange, dispatch }: Props) {
   return (
     <div>
-      <ListingExtractor onApply={onChange} />
+      <ListingExtractor onApply={onChange} dispatch={dispatch} />
 
       <InputField
         label="Market / City"

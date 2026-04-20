@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { PropertyInputs } from '@/lib/types';
+import type { PropertyInputs, DealAction } from '@/lib/types';
 import { formatCurrency } from '@/lib/format';
 import { hapticSuccess } from '@/lib/haptics';
 
@@ -13,18 +13,24 @@ interface ExtractedData {
   sqft?: number | null;
   purchasePrice?: number | null;
   yearBuilt?: number | null;
+  suggestedADR?: number | null;
+  suggestedOccupancy?: number | null;
+  suggestedMonthlyRent?: number | null;
+  suggestedARV?: number | null;
+  revenueReasoning?: string | null;
   confidence?: Record<string, 'high' | 'low'>;
 }
 
 interface Props {
   onApply: (updates: Partial<PropertyInputs>) => void;
+  dispatch?: React.Dispatch<DealAction>;
 }
 
 const MAX_CHARS = 10_000;
 
 type InputMode = 'text' | 'image';
 
-export default function ListingExtractor({ onApply }: Props) {
+export default function ListingExtractor({ onApply, dispatch }: Props) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<InputMode>('text');
   const [text, setText] = useState('');
@@ -109,6 +115,26 @@ export default function ListingExtractor({ onApply }: Props) {
     if (typeof result.purchasePrice === 'number' && result.purchasePrice > 0) updates.purchasePrice = result.purchasePrice;
     if (typeof result.yearBuilt === 'number' && result.yearBuilt > 1800) updates.yearBuilt = result.yearBuilt;
     onApply(updates);
+
+    // Apply revenue estimates to strategy-specific inputs
+    if (dispatch) {
+      if (typeof result.suggestedADR === 'number' && result.suggestedADR > 0) {
+        dispatch({ type: 'UPDATE_REVENUE', payload: { adr: result.suggestedADR } });
+      }
+      if (typeof result.suggestedOccupancy === 'number' && result.suggestedOccupancy > 0) {
+        dispatch({ type: 'UPDATE_REVENUE', payload: { occupancyRate: result.suggestedOccupancy } });
+      }
+      if (typeof result.suggestedMonthlyRent === 'number' && result.suggestedMonthlyRent > 0) {
+        dispatch({ type: 'UPDATE_LTR', payload: { monthlyRent: result.suggestedMonthlyRent } });
+        dispatch({ type: 'UPDATE_BRRRR', payload: { monthlyRent: result.suggestedMonthlyRent } });
+      }
+      if (typeof result.suggestedARV === 'number' && result.suggestedARV > 0) {
+        dispatch({ type: 'UPDATE_FLIP', payload: { arv: result.suggestedARV } });
+        dispatch({ type: 'UPDATE_BRRRR', payload: { arv: result.suggestedARV } });
+        dispatch({ type: 'UPDATE_WHOLESALE', payload: { arv: result.suggestedARV } });
+      }
+    }
+
     hapticSuccess();
     close();
   }
@@ -297,7 +323,44 @@ export default function ListingExtractor({ onApply }: Props) {
                         confidence={result.confidence?.yearBuilt}
                       />
                     </div>
-                    <p className="text-[10px] text-text-muted mb-3">
+
+                    {/* Revenue Estimates */}
+                    {(result.suggestedADR || result.suggestedMonthlyRent || result.suggestedARV) && (
+                      <div className="mt-3 pt-3 border-t border-border-default">
+                        <div className="text-[10px] font-semibold text-accent-blue uppercase tracking-wider mb-2">
+                          Revenue Estimates
+                        </div>
+                        <div className="space-y-1.5 mb-2">
+                          <PreviewRow
+                            label="STR Nightly Rate"
+                            value={result.suggestedADR ? formatCurrency(result.suggestedADR) : null}
+                            confidence={result.confidence?.suggestedADR}
+                          />
+                          <PreviewRow
+                            label="STR Occupancy"
+                            value={result.suggestedOccupancy ? `${result.suggestedOccupancy}%` : null}
+                            confidence={result.confidence?.suggestedOccupancy}
+                          />
+                          <PreviewRow
+                            label="LTR Monthly Rent"
+                            value={result.suggestedMonthlyRent ? formatCurrency(result.suggestedMonthlyRent) : null}
+                            confidence={result.confidence?.suggestedMonthlyRent}
+                          />
+                          <PreviewRow
+                            label="ARV (if reno needed)"
+                            value={result.suggestedARV ? formatCurrency(result.suggestedARV) : null}
+                            confidence={result.confidence?.suggestedARV}
+                          />
+                        </div>
+                        {result.revenueReasoning && (
+                          <p className="text-[10px] text-text-muted italic">
+                            {result.revenueReasoning}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <p className="text-[10px] text-text-muted mb-3 mt-3">
                       Review and apply. Fields marked <span className="text-text-muted">—</span> were not found and won&apos;t be overwritten.
                     </p>
                     <div className="flex gap-2 justify-end">

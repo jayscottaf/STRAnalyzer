@@ -19,7 +19,7 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-const SYSTEM_PROMPT = `You extract STR (short-term rental) property details from real estate listing text or images.
+const SYSTEM_PROMPT = `You extract property details AND estimate revenue from real estate listing text or images.
 
 Return ONLY valid JSON with this exact shape:
 {
@@ -30,18 +30,32 @@ Return ONLY valid JSON with this exact shape:
   "sqft": number | null,
   "purchasePrice": number | null,
   "yearBuilt": number | null,
+  "suggestedADR": number | null,
+  "suggestedOccupancy": number | null,
+  "suggestedMonthlyRent": number | null,
+  "suggestedARV": number | null,
+  "revenueReasoning": string | null,
   "confidence": {
     "<field>": "high" | "low"
   }
 }
 
-Rules:
+Property extraction rules:
 - Use null when a field is not clearly stated. Do not guess.
 - "market" should be "City, ST" format (e.g. "Pigeon Forge, TN"). If only city is available, return "City".
-- Match propertyType to the closest enum value based on listing description (waterfront → Beach House or Lake House, log home in woods → Cabin, downtown high-rise → Urban Apartment, etc.).
+- Match propertyType to the closest enum value based on listing description.
 - bathrooms can be decimal for half-baths: 2.5
-- purchasePrice is the list price in dollars, not mortgage payment, rent, or monthly HOA.
+- purchasePrice is the list price in dollars, not mortgage payment or rent.
 - sqft is total finished square feet.
+
+Revenue estimation rules:
+- suggestedADR: estimate nightly rate for short-term rental based on bedrooms, location, property type. Scale roughly: 1bd=$100-150, 2bd=$150-200, 3bd=$200-300, 4bd=$250-400, 5+bd add $50-80 per additional bedroom. Adjust for market (mountain/beach premium, urban discount).
+- suggestedOccupancy: estimate annual occupancy %. US average is 50-55%. Strong vacation markets 60-75%. Urban 45-55%. Be conservative.
+- suggestedMonthlyRent: estimate long-term rental rate. Scale by bedrooms and market. For multi-bedroom, estimate total rent if rented as single unit.
+- suggestedARV: only provide if listing suggests property needs renovation or is priced below market. Otherwise null.
+- revenueReasoning: 1-2 sentences explaining your estimates and any caveats about the market.
+
+General rules:
 - Include a confidence entry for every non-null field.
 - Response must be valid JSON. No markdown, no commentary.`;
 
@@ -105,7 +119,7 @@ export async function POST(request: NextRequest) {
     const response = await openai.chat.completions.create({
       model: hasImage ? 'gpt-4.1' : 'gpt-4.1-mini',
       temperature: 0,
-      max_tokens: 500,
+      max_tokens: 700,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },

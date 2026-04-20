@@ -54,6 +54,7 @@ export default function Sidebar({ inputs, dispatch }: Props) {
         <PropertyInputs
           values={inputs.property}
           onChange={(updates) => dispatch({ type: 'UPDATE_PROPERTY', payload: updates })}
+          dispatch={dispatch}
         />
       </SidebarSection>
 
