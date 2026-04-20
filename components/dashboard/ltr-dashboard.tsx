@@ -3,7 +3,7 @@
 import type { LTRMetrics } from '@/lib/types';
 import { formatCurrency, formatPercent, formatDSCR } from '@/lib/format';
 import { THRESHOLDS } from '@/lib/constants';
-import MetricCard from './metric-card';
+import UniversalMetricsGrid, { type MetricDef } from './universal-metrics-grid';
 
 interface Props {
   metrics: LTRMetrics;
@@ -27,92 +27,124 @@ export default function LTRDashboard({ metrics }: Props) {
     ? 'Lender eligible'
     : 'Marginal coverage';
 
-  return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 auto-rows-fr">
-      <MetricCard
-        label="Monthly Cash Flow"
-        value={formatCurrency(metrics.monthlyCashFlow)}
-        subtitle={`Annual: ${formatCurrency(metrics.annualCashFlow)}`}
-        tooltip="Net monthly cash flow after all expenses and debt service."
-        color={getColor(metrics.monthlyCashFlow, THRESHOLDS.monthlyCashFlow)}
-        large
-      />
-      <MetricCard
-        label="Cash-on-Cash Return"
-        value={formatPercent(metrics.cocReturn)}
-        subtitle={metrics.trueCocReturn !== null ? `w/ tax: ${formatPercent(metrics.trueCocReturn)}` : 'pre-tax'}
-        tooltip="Annual cash flow / cash invested. 8%+ is strong for LTR."
-        color={getColor(metrics.cocReturn, THRESHOLDS.coc)}
-        large
-      />
-      <MetricCard
-        label="Cap Rate"
-        value={formatPercent(metrics.capRate)}
-        subtitle="Unlevered return"
-        color={getColor(metrics.capRate, THRESHOLDS.cap)}
-        large
-      />
-      <MetricCard
-        label="DSCR"
-        value={formatDSCR(metrics.dscr)}
-        subtitle={dscrSubtitle}
-        color={isFinite(metrics.dscr) ? getColor(metrics.dscr, THRESHOLDS.dscr) : 'blue'}
-        large
-      />
-      <MetricCard
-        label="Monthly Rent"
-        value={formatCurrency(metrics.monthlyRent)}
-        subtitle={`Annual: ${formatCurrency(metrics.annualGrossRent)}`}
-        color="neutral"
-      />
-      <MetricCard
-        label="1% Rule"
-        value={metrics.onePercentRule ? 'PASS' : 'FAIL'}
-        subtitle={metrics.twoPercentRule ? '2% rule passes too' : 'below 2% rule'}
-        tooltip="Monthly rent ≥ 1% of purchase price."
-        color={metrics.onePercentRule ? 'green' : 'amber'}
-      />
-      <MetricCard
-        label="GRM"
-        value={metrics.grm.toFixed(1)}
-        subtitle="Gross Rent Multiplier"
-        tooltip="Purchase price / annual rent. Lower is better. 8-12 is typical."
-        color={metrics.grm > 0 && metrics.grm <= 10 ? 'green' : metrics.grm <= 15 ? 'amber' : 'red'}
-      />
-      <MetricCard
-        label="NOI"
-        value={formatCurrency(metrics.noi)}
-        subtitle="Before debt service"
-        color="neutral"
-      />
-      <MetricCard
-        label="Total Cash Required"
-        value={formatCurrency(metrics.totalCashInvested)}
-        subtitle={`LTV: ${formatPercent(metrics.ltv)}`}
-        color="neutral"
-      />
-      <MetricCard
-        label="Vacancy Loss"
-        value={formatCurrency(metrics.vacancyLoss)}
-        subtitle={`EGI: ${formatCurrency(metrics.effectiveGrossIncome)}`}
-        color="neutral"
-      />
-      {metrics.irr !== null && (
-        <MetricCard
-          label="IRR (w/ Exit)"
-          value={formatPercent(metrics.irr)}
-          subtitle="After-tax exit"
-          color={getColor(metrics.irr, THRESHOLDS.irr)}
-        />
-      )}
-      {metrics.totalReturnPct !== null && (
-        <MetricCard
-          label="5yr Total Return"
-          value={formatPercent(metrics.totalReturnPct)}
-          subtitle="Cash + apprec + paydown"
-          color={getColor(metrics.totalReturnPct, THRESHOLDS.totalReturn)}
-        />
-      )}
-    </div>
-  );
+  const items: MetricDef[] = [
+    {
+      key: 'monthlyCashFlow',
+      label: 'Monthly Cash Flow',
+      value: formatCurrency(metrics.monthlyCashFlow),
+      rawValue: metrics.monthlyCashFlow,
+      formatFn: (v) => formatCurrency(v),
+      subtitle: `Annual: ${formatCurrency(metrics.annualCashFlow)}`,
+      color: getColor(metrics.monthlyCashFlow, THRESHOLDS.monthlyCashFlow),
+      benchmark: 'vs $200+ target',
+      large: true,
+    },
+    {
+      key: 'cocReturn',
+      label: 'Cash-on-Cash Return',
+      value: formatPercent(metrics.cocReturn),
+      rawValue: metrics.cocReturn,
+      formatFn: (v) => formatPercent(v),
+      subtitle: metrics.trueCocReturn !== null ? `w/ tax: ${formatPercent(metrics.trueCocReturn)}` : 'pre-tax',
+      color: getColor(metrics.cocReturn, THRESHOLDS.coc),
+      benchmark: 'LTR avg: 6%',
+      large: true,
+    },
+    {
+      key: 'capRate',
+      label: 'Cap Rate',
+      value: formatPercent(metrics.capRate),
+      rawValue: metrics.capRate,
+      formatFn: (v) => formatPercent(v),
+      subtitle: 'Unlevered return',
+      color: getColor(metrics.capRate, THRESHOLDS.cap),
+      benchmark: 'LTR avg: 5-7%',
+      large: true,
+    },
+    {
+      key: 'dscr',
+      label: 'DSCR',
+      value: formatDSCR(metrics.dscr),
+      rawValue: isFinite(metrics.dscr) ? metrics.dscr : undefined,
+      formatFn: (v) => formatDSCR(v),
+      subtitle: dscrSubtitle,
+      color: isFinite(metrics.dscr) ? getColor(metrics.dscr, THRESHOLDS.dscr) : 'blue',
+      benchmark: 'Lender min: 1.20',
+      large: true,
+    },
+    {
+      key: 'monthlyRent',
+      label: 'Monthly Rent',
+      value: formatCurrency(metrics.monthlyRent),
+      rawValue: metrics.monthlyRent,
+      formatFn: (v) => formatCurrency(v),
+      subtitle: `Annual: ${formatCurrency(metrics.annualGrossRent)}`,
+      color: 'neutral',
+    },
+    {
+      key: 'onePercentRule',
+      label: '1% Rule',
+      value: metrics.onePercentRule ? 'PASS' : 'FAIL',
+      subtitle: metrics.twoPercentRule ? '2% rule passes too' : 'below 2% rule',
+      color: metrics.onePercentRule ? 'green' : 'amber',
+      benchmark: 'rent/price >= 1%',
+    },
+    {
+      key: 'grm',
+      label: 'GRM',
+      value: metrics.grm.toFixed(1),
+      rawValue: metrics.grm,
+      formatFn: (v) => v.toFixed(1),
+      subtitle: 'Gross Rent Multiplier',
+      color: metrics.grm > 0 && metrics.grm <= 10 ? 'green' : metrics.grm <= 15 ? 'amber' : 'red',
+      benchmark: 'Target: 8-12',
+    },
+    {
+      key: 'noi',
+      label: 'NOI',
+      value: formatCurrency(metrics.noi),
+      rawValue: metrics.noi,
+      formatFn: (v) => formatCurrency(v),
+      subtitle: 'Before debt service',
+      color: 'neutral',
+    },
+    {
+      key: 'totalCashInvested',
+      label: 'Total Cash Required',
+      value: formatCurrency(metrics.totalCashInvested),
+      rawValue: metrics.totalCashInvested,
+      formatFn: (v) => formatCurrency(v),
+      subtitle: `LTV: ${formatPercent(metrics.ltv)}`,
+      color: 'neutral',
+    },
+    {
+      key: 'vacancyLoss',
+      label: 'Vacancy Loss',
+      value: formatCurrency(metrics.vacancyLoss),
+      rawValue: metrics.vacancyLoss,
+      formatFn: (v) => formatCurrency(v),
+      subtitle: `EGI: ${formatCurrency(metrics.effectiveGrossIncome)}`,
+      color: 'neutral',
+    },
+    ...(metrics.irr !== null ? [{
+      key: 'irr',
+      label: 'IRR (w/ Exit)',
+      value: formatPercent(metrics.irr),
+      rawValue: metrics.irr,
+      formatFn: (v: number) => formatPercent(v),
+      subtitle: 'After-tax exit',
+      color: getColor(metrics.irr, THRESHOLDS.irr) as 'green' | 'amber' | 'red',
+    }] : []),
+    ...(metrics.totalReturnPct !== null ? [{
+      key: 'totalReturnPct',
+      label: '5yr Total Return',
+      value: formatPercent(metrics.totalReturnPct),
+      rawValue: metrics.totalReturnPct,
+      formatFn: (v: number) => formatPercent(v),
+      subtitle: 'Cash + apprec + paydown',
+      color: getColor(metrics.totalReturnPct, THRESHOLDS.totalReturn) as 'green' | 'amber' | 'red',
+    }] : []),
+  ];
+
+  return <UniversalMetricsGrid items={items} storagePrefix="ltr" />;
 }
