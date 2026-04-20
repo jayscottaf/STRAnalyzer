@@ -894,88 +894,174 @@ export interface TornadoItem {
   positiveIsHigh: boolean;
 }
 
-const TORNADO_VARIANCE = 0.10; // ±10%
+const TORNADO_VARIANCE = 0.10;
 
-function cocFor(inputs: DealInputs): number {
-  return calculateAllMetrics(inputs).cocReturn;
+function cocForStrategy(inputs: DealInputs): number {
+  switch (inputs.activeStrategy) {
+    case 'ltr': {
+      // Inline LTR CoC to avoid circular import
+      const { property, financing, ltr } = inputs;
+      const loanAmt = financing.loanType === 'cash' ? 0 : property.purchasePrice * (1 - financing.downPaymentPct / 100);
+      const payment = financing.loanType === 'cash' ? 0 : calculateMonthlyPayment(loanAmt, financing.interestRate, financing.loanTerm);
+      const annualRent = ltr.monthlyRent * 12 * (1 - ltr.vacancyRatePct / 100);
+      const opEx = property.purchasePrice * (inputs.expenses.propertyTaxRate / 100) +
+        property.purchasePrice * (inputs.expenses.insuranceRate / 100) +
+        annualRent * (inputs.expenses.maintenanceReservePct / 100) +
+        annualRent * (ltr.managementFeePct / 100) +
+        inputs.expenses.utilitiesMonthly * 6 +
+        inputs.expenses.hoaMonthly * 12;
+      const noi = annualRent - opEx;
+      const cf = noi - payment * 12;
+      const downPmt = property.purchasePrice - loanAmt;
+      const closingCosts = property.purchasePrice * (financing.closingCostsPct / 100);
+      const cashIn = downPmt + closingCosts + (payment + property.purchasePrice * inputs.expenses.propertyTaxRate / 100 / 12 + property.purchasePrice * inputs.expenses.insuranceRate / 100 / 12 + inputs.expenses.hoaMonthly) * financing.cashReserveMonths;
+      return cashIn > 0 ? (cf / cashIn) * 100 : 0;
+    }
+    case 'flip': {
+      const { property, flip } = inputs;
+      const totalReno = flip.renovationBudget * (1 + flip.contingencyPct / 100);
+      const sellingCosts = flip.arv * (flip.sellingCostsPct / 100);
+      const loanAmt = flip.financingType === 'hard_money' ? property.purchasePrice * 0.8 : 0;
+      const points = loanAmt * (flip.hardMoneyPoints / 100);
+      const interest = loanAmt * (flip.hardMoneyRate / 100 / 12) * flip.totalHoldMonths;
+      const holding = interest + points + property.purchasePrice * (inputs.expenses.propertyTaxRate / 100 / 12) * flip.totalHoldMonths + property.purchasePrice * (inputs.expenses.insuranceRate / 100 / 12) * flip.totalHoldMonths;
+      const profit = flip.arv - property.purchasePrice - totalReno - holding - sellingCosts;
+      const cashReq = (property.purchasePrice - loanAmt) + totalReno + points;
+      return cashReq > 0 ? (profit / cashReq) * 100 : 0;
+    }
+    default:
+      return calculateAllMetrics(inputs).cocReturn;
+  }
 }
 
 export function calculateTornado(inputs: DealInputs): TornadoItem[] {
-  const baseline = cocFor(inputs);
+  const strategy = inputs.activeStrategy ?? 'str';
+  const baseline = cocForStrategy(inputs);
 
-  function variant(mutator: (d: DealInputs) => DealInputs, mult: number): number {
+  function variant(mutator: (d: DealInputs) => DealInputs): number {
     const clone = structuredClone(inputs);
-    return cocFor(mutator(clone));
+    return cocForStrategy(mutator(clone));
   }
 
   const items: TornadoItem[] = [];
 
-  // ADR
-  items.push({
-    label: 'Nightly Rate',
-    lowValue: variant((d) => { d.revenue.adr *= (1 - TORNADO_VARIANCE); return d; }, 1),
-    highValue: variant((d) => { d.revenue.adr *= (1 + TORNADO_VARIANCE); return d; }, 1),
-    baselineDelta: baseline,
-    positiveIsHigh: true,
-  });
-
-  // Occupancy
-  items.push({
-    label: 'Occupancy',
-    lowValue: variant((d) => { d.revenue.occupancyRate = Math.max(d.revenue.occupancyRate * (1 - TORNADO_VARIANCE), 1); return d; }, 1),
-    highValue: variant((d) => { d.revenue.occupancyRate = Math.min(d.revenue.occupancyRate * (1 + TORNADO_VARIANCE), 100); return d; }, 1),
-    baselineDelta: baseline,
-    positiveIsHigh: true,
-  });
-
-  // Purchase Price
+  // Shared: Purchase Price
   items.push({
     label: 'Purchase Price',
-    lowValue: variant((d) => { d.property.purchasePrice *= (1 - TORNADO_VARIANCE); return d; }, 1),
-    highValue: variant((d) => { d.property.purchasePrice *= (1 + TORNADO_VARIANCE); return d; }, 1),
+    lowValue: variant((d) => { d.property.purchasePrice *= (1 - TORNADO_VARIANCE); return d; }),
+    highValue: variant((d) => { d.property.purchasePrice *= (1 + TORNADO_VARIANCE); return d; }),
     baselineDelta: baseline,
-    positiveIsHigh: false, // lower price = higher CoC
+    positiveIsHigh: false,
   });
 
-  // Interest Rate (if financed)
-  if (inputs.financing.loanType !== 'cash') {
+  // STR-specific
+  if (strategy === 'str') {
     items.push({
-      label: 'Interest Rate',
-      lowValue: variant((d) => { d.financing.interestRate = Math.max(d.financing.interestRate * (1 - TORNADO_VARIANCE), 0.1); return d; }, 1),
-      highValue: variant((d) => { d.financing.interestRate = d.financing.interestRate * (1 + TORNADO_VARIANCE); return d; }, 1),
+      label: 'Nightly Rate',
+      lowValue: variant((d) => { d.revenue.adr *= (1 - TORNADO_VARIANCE); return d; }),
+      highValue: variant((d) => { d.revenue.adr *= (1 + TORNADO_VARIANCE); return d; }),
       baselineDelta: baseline,
-      positiveIsHigh: false, // lower rate = higher CoC
+      positiveIsHigh: true,
+    });
+    items.push({
+      label: 'Occupancy',
+      lowValue: variant((d) => { d.revenue.occupancyRate = Math.max(d.revenue.occupancyRate * (1 - TORNADO_VARIANCE), 1); return d; }),
+      highValue: variant((d) => { d.revenue.occupancyRate = Math.min(d.revenue.occupancyRate * (1 + TORNADO_VARIANCE), 100); return d; }),
+      baselineDelta: baseline,
+      positiveIsHigh: true,
     });
   }
 
-  // Property Tax
-  items.push({
-    label: 'Property Tax',
-    lowValue: variant((d) => { d.expenses.propertyTaxRate = Math.max(d.expenses.propertyTaxRate * (1 - TORNADO_VARIANCE), 0); return d; }, 1),
-    highValue: variant((d) => { d.expenses.propertyTaxRate = d.expenses.propertyTaxRate * (1 + TORNADO_VARIANCE); return d; }, 1),
-    baselineDelta: baseline,
-    positiveIsHigh: false,
-  });
+  // LTR-specific
+  if (strategy === 'ltr') {
+    items.push({
+      label: 'Monthly Rent',
+      lowValue: variant((d) => { d.ltr.monthlyRent *= (1 - TORNADO_VARIANCE); return d; }),
+      highValue: variant((d) => { d.ltr.monthlyRent *= (1 + TORNADO_VARIANCE); return d; }),
+      baselineDelta: baseline,
+      positiveIsHigh: true,
+    });
+    items.push({
+      label: 'Vacancy Rate',
+      lowValue: variant((d) => { d.ltr.vacancyRatePct = Math.max(d.ltr.vacancyRatePct * (1 - TORNADO_VARIANCE), 0); return d; }),
+      highValue: variant((d) => { d.ltr.vacancyRatePct = d.ltr.vacancyRatePct * (1 + TORNADO_VARIANCE); return d; }),
+      baselineDelta: baseline,
+      positiveIsHigh: false,
+    });
+  }
 
-  // Maintenance
-  items.push({
-    label: 'Maintenance %',
-    lowValue: variant((d) => { d.expenses.maintenanceReservePct = Math.max(d.expenses.maintenanceReservePct * (1 - TORNADO_VARIANCE), 0); return d; }, 1),
-    highValue: variant((d) => { d.expenses.maintenanceReservePct = d.expenses.maintenanceReservePct * (1 + TORNADO_VARIANCE); return d; }, 1),
-    baselineDelta: baseline,
-    positiveIsHigh: false,
-  });
+  // Flip-specific
+  if (strategy === 'flip') {
+    items.push({
+      label: 'ARV',
+      lowValue: variant((d) => { d.flip.arv *= (1 - TORNADO_VARIANCE); return d; }),
+      highValue: variant((d) => { d.flip.arv *= (1 + TORNADO_VARIANCE); return d; }),
+      baselineDelta: baseline,
+      positiveIsHigh: true,
+    });
+    items.push({
+      label: 'Renovation Budget',
+      lowValue: variant((d) => { d.flip.renovationBudget *= (1 - TORNADO_VARIANCE); return d; }),
+      highValue: variant((d) => { d.flip.renovationBudget *= (1 + TORNADO_VARIANCE); return d; }),
+      baselineDelta: baseline,
+      positiveIsHigh: false,
+    });
+    items.push({
+      label: 'Hold Time',
+      lowValue: variant((d) => { d.flip.totalHoldMonths = Math.max(Math.round(d.flip.totalHoldMonths * (1 - TORNADO_VARIANCE)), 1); return d; }),
+      highValue: variant((d) => { d.flip.totalHoldMonths = Math.round(d.flip.totalHoldMonths * (1 + TORNADO_VARIANCE)); return d; }),
+      baselineDelta: baseline,
+      positiveIsHigh: false,
+    });
+  }
 
-  // Insurance
-  items.push({
-    label: 'Insurance',
-    lowValue: variant((d) => { d.expenses.insuranceRate = Math.max(d.expenses.insuranceRate * (1 - TORNADO_VARIANCE), 0); return d; }, 1),
-    highValue: variant((d) => { d.expenses.insuranceRate = d.expenses.insuranceRate * (1 + TORNADO_VARIANCE); return d; }, 1),
-    baselineDelta: baseline,
-    positiveIsHigh: false,
-  });
+  // BRRRR-specific
+  if (strategy === 'brrrr') {
+    items.push({
+      label: 'ARV',
+      lowValue: variant((d) => { d.brrrr.arv *= (1 - TORNADO_VARIANCE); return d; }),
+      highValue: variant((d) => { d.brrrr.arv *= (1 + TORNADO_VARIANCE); return d; }),
+      baselineDelta: baseline,
+      positiveIsHigh: true,
+    });
+    items.push({
+      label: 'Monthly Rent',
+      lowValue: variant((d) => { d.brrrr.monthlyRent *= (1 - TORNADO_VARIANCE); return d; }),
+      highValue: variant((d) => { d.brrrr.monthlyRent *= (1 + TORNADO_VARIANCE); return d; }),
+      baselineDelta: baseline,
+      positiveIsHigh: true,
+    });
+    items.push({
+      label: 'Refi LTV',
+      lowValue: variant((d) => { d.brrrr.refiLTV = Math.max(d.brrrr.refiLTV - 5, 50); return d; }),
+      highValue: variant((d) => { d.brrrr.refiLTV = Math.min(d.brrrr.refiLTV + 5, 80); return d; }),
+      baselineDelta: baseline,
+      positiveIsHigh: true,
+    });
+  }
 
-  // Sort by total range (biggest movers first)
+  // Shared financing: Interest Rate
+  if (inputs.financing.loanType !== 'cash' && (strategy === 'str' || strategy === 'ltr')) {
+    items.push({
+      label: 'Interest Rate',
+      lowValue: variant((d) => { d.financing.interestRate = Math.max(d.financing.interestRate * (1 - TORNADO_VARIANCE), 0.1); return d; }),
+      highValue: variant((d) => { d.financing.interestRate *= (1 + TORNADO_VARIANCE); return d; }),
+      baselineDelta: baseline,
+      positiveIsHigh: false,
+    });
+  }
+
+  // Shared expenses: Property Tax, Insurance
+  if (strategy !== 'wholesale') {
+    items.push({
+      label: 'Property Tax',
+      lowValue: variant((d) => { d.expenses.propertyTaxRate = Math.max(d.expenses.propertyTaxRate * (1 - TORNADO_VARIANCE), 0); return d; }),
+      highValue: variant((d) => { d.expenses.propertyTaxRate *= (1 + TORNADO_VARIANCE); return d; }),
+      baselineDelta: baseline,
+      positiveIsHigh: false,
+    });
+  }
+
   items.sort((a, b) => Math.abs(b.highValue - b.lowValue) - Math.abs(a.highValue - a.lowValue));
   return items;
 }

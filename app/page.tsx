@@ -52,11 +52,6 @@ export default function HomePage() {
   const brrrrMetrics = useMemo(() => hydrated ? calculateBRRRRMetrics(inputs) : null, [inputs, hydrated]);
   const wholesaleMetrics = useMemo(() => hydrated ? calculateWholesaleMetrics(inputs) : null, [inputs, hydrated]);
 
-  const tornadoData = useMemo(() => {
-    if (!strMetrics || strategy !== 'str') return null;
-    return calculateTornado(inputs);
-  }, [inputs, strMetrics, strategy]);
-
   const runAnalysis = useCallback(async () => {
     if (aiLoading || aiCooldown) return;
     setAiLoading(true);
@@ -107,6 +102,12 @@ export default function HomePage() {
   if (hydrated && activeTab !== 'compare' && activeTab !== inputs.activeStrategy) {
     setActiveTab(inputs.activeStrategy);
   }
+
+  const tornadoData = useMemo(() => {
+    if (!hydrated) return null;
+    if (activeTab === 'compare' || activeTab === 'wholesale') return null;
+    return calculateTornado(inputs);
+  }, [inputs, hydrated, activeTab]);
 
   if (!hydrated || !strMetrics) {
     return (
@@ -206,6 +207,10 @@ export default function HomePage() {
             {/* LTR Dashboard */}
             {activeTab === 'ltr' && ltrMetrics && (
               <>
+                <div className="flex flex-wrap gap-2">
+                  <OfferSolver inputs={inputs} dispatch={dispatch} strategy="ltr" />
+                </div>
+                <DealScore metrics={ltrMetrics} strategy="ltr" />
                 <LTRDashboard metrics={ltrMetrics} />
 
                 {ltrMetrics.projection.length > 0 && (
@@ -225,17 +230,24 @@ export default function HomePage() {
                 )}
 
                 {inputs.tax.enabled && <TaxComparator inputs={inputs} />}
+
+                {tornadoData && <TornadoChart items={tornadoData} baseline={ltrMetrics.cocReturn} />}
               </>
             )}
 
             {/* Flip Dashboard */}
             {activeTab === 'flip' && flipMetrics && (
-              <FlipDashboard metrics={flipMetrics} />
+              <>
+                <DealScore metrics={flipMetrics} strategy="flip" />
+                <FlipDashboard metrics={flipMetrics} />
+                {tornadoData && <TornadoChart items={tornadoData} baseline={flipMetrics.roi} />}
+              </>
             )}
 
             {/* BRRRR Dashboard */}
             {activeTab === 'brrrr' && brrrrMetrics && (
               <>
+                <DealScore metrics={brrrrMetrics} strategy="brrrr" />
                 <BRRRRDashboard metrics={brrrrMetrics} />
 
                 {brrrrMetrics.projection.length > 0 && (
@@ -243,12 +255,17 @@ export default function HomePage() {
                 )}
 
                 {inputs.tax.enabled && <TaxComparator inputs={inputs} />}
+
+                {tornadoData && <TornadoChart items={tornadoData} baseline={brrrrMetrics.isInfiniteReturn ? 100 : brrrrMetrics.postRefiCocReturn} />}
               </>
             )}
 
             {/* Wholesale Dashboard */}
             {activeTab === 'wholesale' && wholesaleMetrics && (
-              <WholesaleDashboard metrics={wholesaleMetrics} />
+              <>
+                <DealScore metrics={wholesaleMetrics} strategy="wholesale" />
+                <WholesaleDashboard metrics={wholesaleMetrics} />
+              </>
             )}
 
             {/* AI Analysis — available on all strategy tabs */}

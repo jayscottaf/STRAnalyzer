@@ -1,24 +1,39 @@
 'use client';
 
 import { useState } from 'react';
-import type { DealInputs, DealAction } from '@/lib/types';
+import type { DealInputs, DealAction, Strategy } from '@/lib/types';
 import { calculateAllMetrics } from '@/lib/calculations';
+import { calculateLTRMetrics } from '@/lib/calculations/ltr';
 import { hapticSuccess } from '@/lib/haptics';
 import { formatCurrency, formatPercent } from '@/lib/format';
 
 interface Props {
   inputs: DealInputs;
   dispatch: React.Dispatch<DealAction>;
+  strategy?: Strategy;
 }
 
 type Target = 'coc' | 'dscr' | 'cashflow';
 
+function getMetricValue(inputs: DealInputs, strategy: Strategy, target: Target): number {
+  if (strategy === 'ltr') {
+    const m = calculateLTRMetrics(inputs);
+    if (target === 'coc') return m.cocReturn;
+    if (target === 'dscr') return isFinite(m.dscr) ? m.dscr : 999;
+    return m.monthlyCashFlow;
+  }
+  const m = calculateAllMetrics(inputs);
+  if (target === 'coc') return m.cocReturn;
+  if (target === 'dscr') return isFinite(m.dscr) ? m.dscr : 999;
+  return m.monthlyCashFlow;
+}
+
 function solve(
   inputs: DealInputs,
+  strategy: Strategy,
   target: Target,
   targetValue: number,
 ): number | null {
-  // Binary search purchasePrice between 10% and 500% of current
   let lo = inputs.property.purchasePrice * 0.1;
   let hi = inputs.property.purchasePrice * 5;
 
@@ -28,18 +43,12 @@ function solve(
       ...inputs,
       property: { ...inputs.property, purchasePrice: mid },
     };
-    const m = calculateAllMetrics(test);
-
-    let value: number;
-    if (target === 'coc') value = m.cocReturn;
-    else if (target === 'dscr') value = isFinite(m.dscr) ? m.dscr : 999;
-    else value = m.monthlyCashFlow;
+    const value = getMetricValue(test, strategy, target);
 
     if (Math.abs(value - targetValue) < (target === 'dscr' ? 0.01 : target === 'cashflow' ? 10 : 0.05)) {
       return mid;
     }
 
-    // For CoC, DSCR, cashflow — all higher when price is lower
     if (value < targetValue) {
       hi = mid;
     } else {
@@ -47,7 +56,6 @@ function solve(
     }
   }
 
-  // Check final mid for validity
   const final = (lo + hi) / 2;
   if (final < inputs.property.purchasePrice * 0.1 || final > inputs.property.purchasePrice * 5) {
     return null;
@@ -55,7 +63,7 @@ function solve(
   return final;
 }
 
-export default function OfferSolver({ inputs, dispatch }: Props) {
+export default function OfferSolver({ inputs, dispatch, strategy = 'str' }: Props) {
   const [open, setOpen] = useState(false);
   const [target, setTarget] = useState<Target>('coc');
   const [targetValue, setTargetValue] = useState(10);
@@ -64,7 +72,7 @@ export default function OfferSolver({ inputs, dispatch }: Props) {
 
   function handleSolve() {
     setError(null);
-    const solved = solve(inputs, target, targetValue);
+    const solved = solve(inputs, strategy, target, targetValue);
     if (solved === null || solved <= 0) {
       setError('No valid offer price found. Try a less aggressive target.');
       setResult(null);
@@ -109,7 +117,9 @@ export default function OfferSolver({ inputs, dispatch }: Props) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-border-default">
-              <h3 className="text-sm font-semibold text-text-foreground">Solve for Offer Price</h3>
+              <h3 className="text-sm font-semibold text-text-foreground">
+                Solve for Offer Price ({strategy.toUpperCase()})
+              </h3>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -123,7 +133,7 @@ export default function OfferSolver({ inputs, dispatch }: Props) {
 
             <div className="p-4">
               <p className="text-[11px] text-text-muted mb-3">
-                What offer price do I need to make to hit my target return? Everything else stays fixed — only the purchase price changes.
+                What offer price do I need to hit my target return? Everything else stays fixed — only the purchase price changes.
               </p>
 
               <div className="mb-3">

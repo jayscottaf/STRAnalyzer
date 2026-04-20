@@ -1,10 +1,12 @@
 'use client';
 
-import type { DealMetrics } from '@/lib/types';
-import { THRESHOLDS } from '@/lib/constants';
+import type { DealMetrics, LTRMetrics, FlipMetrics, BRRRRMetrics, WholesaleMetrics, Strategy } from '@/lib/types';
+
+type AnyMetrics = DealMetrics | LTRMetrics | FlipMetrics | BRRRRMetrics | WholesaleMetrics;
 
 interface Props {
-  metrics: DealMetrics;
+  metrics: AnyMetrics;
+  strategy?: Strategy;
 }
 
 function scoreMetric(value: number, good: number, marginal: number, lowerBetter = false): number {
@@ -29,47 +31,70 @@ function getGrade(score: number): { letter: string; color: string; bgColor: stri
   return { letter: 'F', color: 'text-accent-red', bgColor: 'bg-accent-red' };
 }
 
-export default function DealScore({ metrics }: Props) {
-  const cocScore = scoreMetric(metrics.cocReturn, THRESHOLDS.coc.good, THRESHOLDS.coc.marginal);
-  const capScore = scoreMetric(metrics.capRate, THRESHOLDS.cap.good, THRESHOLDS.cap.marginal);
-  const dscrScore = isFinite(metrics.dscr)
-    ? scoreMetric(metrics.dscr, THRESHOLDS.dscr.good, THRESHOLDS.dscr.marginal)
-    : 100;
-  const cfScore = scoreMetric(
-    metrics.monthlyCashFlow,
-    THRESHOLDS.monthlyCashFlow.good,
-    THRESHOLDS.monthlyCashFlow.marginal,
-  );
-  const beScore = scoreMetric(
-    metrics.breakEvenOccupancy,
-    THRESHOLDS.breakEvenOccupancy.good,
-    THRESHOLDS.breakEvenOccupancy.marginal,
-    true,
-  );
-  const yieldScore = scoreMetric(
-    metrics.grossRentalYield,
-    THRESHOLDS.grossYield.good,
-    THRESHOLDS.grossYield.marginal,
-  );
+function getFactors(metrics: AnyMetrics, strategy: Strategy): { label: string; score: number; weight: number }[] {
+  switch (strategy) {
+    case 'str': {
+      const m = metrics as DealMetrics;
+      return [
+        { label: 'CoC', score: scoreMetric(m.cocReturn, 10, 5), weight: 0.25 },
+        { label: 'CF', score: scoreMetric(m.monthlyCashFlow, 500, 0), weight: 0.2 },
+        { label: 'Cap', score: scoreMetric(m.capRate, 8, 5), weight: 0.15 },
+        { label: 'DSCR', score: isFinite(m.dscr) ? scoreMetric(m.dscr, 1.25, 1.0) : 100, weight: 0.15 },
+        { label: 'B/E', score: scoreMetric(m.breakEvenOccupancy, 55, 75, true), weight: 0.15 },
+        { label: 'Yield', score: scoreMetric(m.grossRentalYield, 10, 7), weight: 0.1 },
+      ];
+    }
+    case 'ltr': {
+      const m = metrics as LTRMetrics;
+      return [
+        { label: 'CoC', score: scoreMetric(m.cocReturn, 10, 5), weight: 0.25 },
+        { label: 'CF', score: scoreMetric(m.monthlyCashFlow, 200, 0), weight: 0.2 },
+        { label: 'Cap', score: scoreMetric(m.capRate, 7, 4), weight: 0.15 },
+        { label: 'DSCR', score: isFinite(m.dscr) ? scoreMetric(m.dscr, 1.25, 1.0) : 100, weight: 0.15 },
+        { label: '1%', score: m.onePercentRule ? 100 : 40, weight: 0.15 },
+        { label: 'GRM', score: scoreMetric(m.grm, 10, 15, true), weight: 0.1 },
+      ];
+    }
+    case 'flip': {
+      const m = metrics as FlipMetrics;
+      return [
+        { label: 'ROI', score: scoreMetric(m.roi, 20, 10), weight: 0.3 },
+        { label: 'Profit', score: scoreMetric(m.netProfit, 40000, 15000), weight: 0.25 },
+        { label: 'Margin', score: scoreMetric(m.profitMargin, 15, 8), weight: 0.2 },
+        { label: '70%', score: m.meetsSeventyRule ? 100 : 30, weight: 0.25 },
+      ];
+    }
+    case 'brrrr': {
+      const m = metrics as BRRRRMetrics;
+      return [
+        { label: 'Cash', score: m.isInfiniteReturn ? 100 : scoreMetric(m.cashLeftInDeal, 5000, 30000, true), weight: 0.3 },
+        { label: 'CoC', score: m.isInfiniteReturn ? 100 : scoreMetric(m.postRefiCocReturn, 15, 8), weight: 0.25 },
+        { label: 'CF', score: scoreMetric(m.monthlyCashFlow, 200, 0), weight: 0.2 },
+        { label: 'DSCR', score: scoreMetric(m.postRefiDscr, 1.25, 1.0), weight: 0.15 },
+        { label: 'Cap', score: scoreMetric(m.capRate, 7, 4), weight: 0.1 },
+      ];
+    }
+    case 'wholesale': {
+      const m = metrics as WholesaleMetrics;
+      return [
+        { label: 'Spread', score: scoreMetric(m.spreadVsAsking, 10000, 0), weight: 0.35 },
+        { label: 'Fee', score: scoreMetric(m.assignmentFee, 15000, 5000), weight: 0.25 },
+        { label: '70%', score: m.meetsSeventyRule ? 100 : 30, weight: 0.25 },
+        { label: 'ROI', score: scoreMetric(m.roiOnEarnest, 500, 200), weight: 0.15 },
+      ];
+    }
+  }
+}
 
+export default function DealScore({ metrics, strategy = 'str' }: Props) {
+  const factors = getFactors(metrics, strategy);
   const composite = Math.round(
-    cocScore * 0.25 + capScore * 0.15 + dscrScore * 0.15 + cfScore * 0.2 + beScore * 0.15 + yieldScore * 0.1,
+    factors.reduce((sum, f) => sum + f.score * f.weight, 0),
   );
-
   const { letter, color, bgColor } = getGrade(composite);
-
-  const factors = [
-    { label: 'CoC', score: cocScore },
-    { label: 'CF', score: cfScore },
-    { label: 'Cap', score: capScore },
-    { label: 'DSCR', score: dscrScore },
-    { label: 'B/E', score: beScore },
-    { label: 'Yield', score: yieldScore },
-  ];
 
   return (
     <div className="rounded-lg border border-border-default bg-bg-surface px-4 py-2.5 flex items-center gap-4">
-      {/* Grade badge */}
       <div className="flex items-center gap-2.5 shrink-0">
         <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center`}>
           <span className="text-lg font-black text-white">{letter}</span>
@@ -80,10 +105,8 @@ export default function DealScore({ metrics }: Props) {
         </div>
       </div>
 
-      {/* Divider */}
       <div className="w-px h-8 bg-border-default shrink-0 hidden sm:block" />
 
-      {/* Factor bars — horizontal row */}
       <div className="flex-1 grid grid-cols-3 sm:grid-cols-6 gap-x-3 gap-y-1">
         {factors.map(({ label, score }) => (
           <div key={label} className="flex items-center gap-1.5">

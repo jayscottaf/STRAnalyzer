@@ -26,11 +26,20 @@ export function calculateFlipMetrics(inputs: DealInputs): FlipMetrics {
     cashRequired = downPayment + totalReno + loanPoints;
   } else if (flip.financingType === 'conventional') {
     loanAmount = purchasePrice * (1 - inputs.financing.downPaymentPct / 100);
+    // Use actual month-by-month interest accumulation
+    const monthlyRate = inputs.financing.interestRate / 100 / 12;
+    const n = inputs.financing.loanTerm * 12;
     const monthlyPayment = loanAmount > 0
-      ? loanAmount * (inputs.financing.interestRate / 100 / 12) /
-        (1 - Math.pow(1 + inputs.financing.interestRate / 100 / 12, -inputs.financing.loanTerm * 12))
+      ? loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, n)) / (Math.pow(1 + monthlyRate, n) - 1)
       : 0;
-    totalInterestCost = monthlyPayment * holdMonths - (loanAmount * 0.02); // approximate
+    let balance = loanAmount;
+    totalInterestCost = 0;
+    for (let m = 0; m < holdMonths; m++) {
+      const interest = balance * monthlyRate;
+      const principal = monthlyPayment - interest;
+      totalInterestCost += interest;
+      balance -= principal;
+    }
     const downPayment = purchasePrice - loanAmount;
     cashRequired = downPayment + totalReno;
   }
