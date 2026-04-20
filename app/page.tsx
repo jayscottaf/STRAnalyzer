@@ -142,7 +142,7 @@ export default function HomePage() {
           {/* Strategy tabs */}
           <StrategyTabs active={activeTab} onChange={handleStrategyChange} />
 
-          {strategy === 'str' && activeTab === 'str' && (
+          {activeTab === 'str' && (
             <StickyKpiBar metrics={strMetrics} observeTargetId="main-kpi-grid" />
           )}
 
@@ -206,11 +206,12 @@ export default function HomePage() {
             {/* LTR Dashboard */}
             {activeTab === 'ltr' && ltrMetrics && (
               <>
-                <div className="flex flex-wrap gap-2">
-                  <CompareMode />
-                  <PdfExport inputs={inputs} metrics={strMetrics} aiAnalysis={aiAnalysis} />
-                </div>
                 <LTRDashboard metrics={ltrMetrics} />
+
+                {ltrMetrics.projection.length > 0 && (
+                  <CashFlowChart projection={ltrMetrics.projection} taxEnabled={inputs.tax.enabled} />
+                )}
+
                 {inputs.tax.enabled && ltrMetrics.taxBenefits && (
                   <div className="rounded-lg border border-border-default bg-bg-surface p-4">
                     <h3 className="text-sm font-semibold mb-3">Tax Benefits (Year 1)</h3>
@@ -222,40 +223,32 @@ export default function HomePage() {
                     </div>
                   </div>
                 )}
+
+                {inputs.tax.enabled && <TaxComparator inputs={inputs} />}
               </>
             )}
 
             {/* Flip Dashboard */}
             {activeTab === 'flip' && flipMetrics && (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  <CompareMode />
-                  <PdfExport inputs={inputs} metrics={strMetrics} aiAnalysis={aiAnalysis} />
-                </div>
-                <FlipDashboard metrics={flipMetrics} />
-              </>
+              <FlipDashboard metrics={flipMetrics} />
             )}
 
             {/* BRRRR Dashboard */}
             {activeTab === 'brrrr' && brrrrMetrics && (
               <>
-                <div className="flex flex-wrap gap-2">
-                  <CompareMode />
-                  <PdfExport inputs={inputs} metrics={strMetrics} aiAnalysis={aiAnalysis} />
-                </div>
                 <BRRRRDashboard metrics={brrrrMetrics} />
+
+                {brrrrMetrics.projection.length > 0 && (
+                  <CashFlowChart projection={brrrrMetrics.projection} taxEnabled={inputs.tax.enabled} />
+                )}
+
+                {inputs.tax.enabled && <TaxComparator inputs={inputs} />}
               </>
             )}
 
             {/* Wholesale Dashboard */}
             {activeTab === 'wholesale' && wholesaleMetrics && (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  <CompareMode />
-                  <PdfExport inputs={inputs} metrics={strMetrics} aiAnalysis={aiAnalysis} />
-                </div>
-                <WholesaleDashboard metrics={wholesaleMetrics} />
-              </>
+              <WholesaleDashboard metrics={wholesaleMetrics} />
             )}
 
             {/* AI Analysis — available on all strategy tabs */}

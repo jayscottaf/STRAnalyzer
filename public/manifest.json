@@ -1,7 +1,7 @@
 {
-  "name": "STR Deal Analyzer",
-  "short_name": "STR Analyzer",
-  "description": "Professional short-term rental investment analysis tool. Calculate cash-on-cash returns, cap rates, tax benefits, and get AI-powered deal verdicts.",
+  "name": "REI Deal Analyzer",
+  "short_name": "REI Analyzer",
+  "description": "Professional real estate investment analyzer. Compare STR, LTR, Fix & Flip, BRRRR, and Wholesale strategies with AI-powered deal verdicts.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1117",

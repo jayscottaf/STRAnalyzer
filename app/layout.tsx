@@ -3,14 +3,14 @@ import './globals.css';
 import { ServiceWorkerRegistrar } from './sw-register';
 
 export const metadata: Metadata = {
-  title: 'STR Deal Analyzer — Short-Term Rental Investment Analysis',
+  title: 'REI Deal Analyzer — Real Estate Investment Analysis',
   description:
-    'Professional investment analysis tool for short-term rental properties. Calculate cash-on-cash returns, cap rates, tax benefits, and get AI-powered deal verdicts.',
+    'Professional real estate investment analyzer. Compare STR, LTR, Fix & Flip, BRRRR, and Wholesale strategies with AI-powered deal verdicts.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'STR Analyzer',
+    title: 'REI Analyzer',
   },
 };
 

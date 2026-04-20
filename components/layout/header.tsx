@@ -19,8 +19,8 @@ export default function Header({ inputs, dispatch, onAnalyze, analyzing }: Props
             <span className="text-white text-xs font-bold">S</span>
           </div>
           <h1 className="text-sm font-bold text-text-foreground">
-            <span className="hidden sm:inline">STR Deal Analyzer</span>
-            <span className="sm:hidden">STR Analyzer</span>
+            <span className="hidden sm:inline">REI Deal Analyzer</span>
+            <span className="sm:hidden">REI Analyzer</span>
           </h1>
         </div>
       </div>
