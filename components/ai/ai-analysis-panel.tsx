@@ -9,6 +9,7 @@ interface Props {
   error: string | null;
   onAnalyze: () => void;
   cooldown: boolean;
+  isStale?: boolean;
 }
 
 const verdictColors: Record<string, string> = {
@@ -18,19 +19,33 @@ const verdictColors: Record<string, string> = {
   'PASS': 'bg-accent-red text-white',
 };
 
-export default function AIAnalysisPanel({ analysis, loading, error, onAnalyze, cooldown }: Props) {
+export default function AIAnalysisPanel({ analysis, loading, error, onAnalyze, cooldown, isStale }: Props) {
   return (
     <div className="rounded-lg border border-border-default bg-bg-surface p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h3 className="text-sm font-semibold text-text-foreground">AI Deal Analysis</h3>
-        <button
-          type="button"
-          onClick={onAnalyze}
-          disabled={loading || cooldown}
-          className="h-7 px-3 text-[11px] font-medium rounded-md bg-accent-blue text-white hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {loading ? 'Analyzing...' : cooldown ? 'Wait...' : 'Run AI Analysis'}
-        </button>
+        <div className="flex items-center gap-2">
+          {isStale && !loading && (
+            <span className="text-[10px] text-accent-amber font-medium flex items-center gap-1">
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              Inputs changed — rerun to update
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onAnalyze}
+            disabled={loading || cooldown}
+            className={`h-7 px-3 text-[11px] font-medium rounded-md text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all ${
+              isStale
+                ? 'bg-accent-amber hover:bg-accent-amber/90 ring-2 ring-accent-amber/40 animate-pulse'
+                : 'bg-accent-blue hover:bg-accent-blue/90'
+            }`}
+          >
+            {loading ? 'Analyzing...' : cooldown ? 'Wait...' : isStale ? 'Rerun Analysis' : 'Run AI Analysis'}
+          </button>
+        </div>
       </div>
 
       {error && (

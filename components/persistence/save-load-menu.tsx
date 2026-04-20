@@ -109,6 +109,11 @@ export default function SaveLoadMenu({ inputs, dispatch }: Props) {
                     className="text-left flex-1 min-w-0"
                   >
                     <div className="text-xs text-text-foreground truncate">{s.name}</div>
+                    {s.inputs.property?.market && (
+                      <div className="text-[10px] text-text-muted truncate">
+                        {s.inputs.property.market}
+                      </div>
+                    )}
                     <div className="text-[10px] text-text-muted flex items-center gap-1.5">
                       {new Date(s.timestamp).toLocaleDateString()}
                       {s.inputs.activeStrategy && (

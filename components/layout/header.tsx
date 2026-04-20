@@ -8,9 +8,10 @@ interface Props {
   dispatch: React.Dispatch<DealAction>;
   onAnalyze: () => void;
   analyzing: boolean;
+  isStale?: boolean;
 }
 
-export default function Header({ inputs, dispatch, onAnalyze, analyzing }: Props) {
+export default function Header({ inputs, dispatch, onAnalyze, analyzing, isStale }: Props) {
   return (
     <header className="h-14 sm:h-12 bg-bg-surface border-b border-border-default flex items-center justify-between px-4 shrink-0">
       <div className="flex items-center gap-3">
@@ -32,9 +33,14 @@ export default function Header({ inputs, dispatch, onAnalyze, analyzing }: Props
           type="button"
           onClick={onAnalyze}
           disabled={analyzing}
-          className="hidden sm:inline-flex items-center justify-center h-8 px-4 text-xs font-medium rounded-md bg-accent-blue text-white hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className={`hidden sm:inline-flex items-center justify-center h-8 px-4 text-xs font-medium rounded-md text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all relative ${
+            isStale
+              ? 'bg-accent-amber hover:bg-accent-amber/90 ring-2 ring-accent-amber/40 animate-pulse'
+              : 'bg-accent-blue hover:bg-accent-blue/90'
+          }`}
+          title={isStale ? 'Inputs changed — rerun to update analysis' : undefined}
         >
-          {analyzing ? 'Analyzing...' : 'Run AI Analysis'}
+          {analyzing ? 'Analyzing...' : isStale ? 'Rerun Analysis' : 'Run AI Analysis'}
         </button>
       </div>
     </header>

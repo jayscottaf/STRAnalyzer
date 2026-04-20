@@ -9,6 +9,7 @@ import Header from '@/components/layout/header';
 import Sidebar from '@/components/layout/sidebar';
 import MobileDrawer from '@/components/layout/mobile-drawer';
 import StrategyTabs from '@/components/layout/strategy-tabs';
+import PropertyIdentityBar from '@/components/layout/property-identity-bar';
 import MetricsGrid from '@/components/dashboard/metrics-grid';
 import CashFlowBreakdown from '@/components/dashboard/cash-flow-breakdown';
 import TaxBenefitPanel from '@/components/dashboard/tax-benefit-panel';
@@ -43,6 +44,10 @@ export default function HomePage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiCooldown, setAiCooldown] = useState(false);
+  const [lastRunSnapshot, setLastRunSnapshot] = useState<string | null>(null);
+
+  const isStale = aiAnalysis !== null && lastRunSnapshot !== null &&
+    JSON.stringify(inputs) !== lastRunSnapshot;
 
   const strategy = inputs.activeStrategy;
 
@@ -75,6 +80,7 @@ export default function HomePage() {
 
       const analysis: AIAnalysis = await res.json();
       setAiAnalysis(analysis);
+      setLastRunSnapshot(JSON.stringify(inputs));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Analysis failed';
       setAiError(message);
@@ -125,6 +131,7 @@ export default function HomePage() {
         dispatch={dispatch}
         onAnalyze={runAnalysis}
         analyzing={aiLoading}
+        isStale={isStale}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -142,6 +149,7 @@ export default function HomePage() {
         <main className="flex-1 overflow-y-auto relative">
           {/* Strategy tabs */}
           <StrategyTabs active={activeTab} onChange={handleStrategyChange} />
+          <PropertyIdentityBar inputs={inputs} />
 
           {activeTab === 'str' && (
             <StickyKpiBar metrics={strMetrics} observeTargetId="main-kpi-grid" />
@@ -276,6 +284,7 @@ export default function HomePage() {
                 error={aiError}
                 onAnalyze={runAnalysis}
                 cooldown={aiCooldown}
+                isStale={isStale}
               />
             )}
           </div>

@@ -42,7 +42,7 @@ Return ONLY valid JSON with this exact shape:
 
 Property extraction rules:
 - Use null when a field is not clearly stated. Do not guess.
-- "market" should be "City, ST" format (e.g. "Pigeon Forge, TN"). If only city is available, return "City".
+- "market" should be the FULL STREET ADDRESS when visible (e.g. "79 W High St, Ballston Spa, NY 12020"). If only city/state is available, return "City, ST" (e.g. "Pigeon Forge, TN"). Prefer full address whenever possible.
 - Match propertyType to the closest enum value based on listing description.
 - bathrooms can be decimal for half-baths: 2.5
 - purchasePrice is the list price in dollars, not mortgage payment or rent.

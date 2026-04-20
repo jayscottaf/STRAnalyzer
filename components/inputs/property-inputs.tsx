@@ -17,11 +17,11 @@ export default function PropertyInputs({ values, onChange, dispatch }: Props) {
       <ListingExtractor onApply={onChange} dispatch={dispatch} />
 
       <InputField
-        label="Market / City"
+        label="Property Address"
         type="text"
         value={values.market}
         onChange={(v) => onChange({ market: v as string })}
-        placeholder="e.g. Pigeon Forge, TN"
+        placeholder="e.g. 79 W High St, Ballston Spa, NY 12020"
       />
 
       <div className="mb-3">
