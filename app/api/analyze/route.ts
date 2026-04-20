@@ -129,23 +129,9 @@ Tax Strategy Enabled:
 - Close timeline: ${inputs.wholesale.closeTimelineDays} days`,
   };
 
-  const userPrompt = `Analyze this ${strategy.toUpperCase()} deal:
-
-${strategyInputs[strategy]}
-
-Property: ${inputs.property.propertyType} in ${inputs.property.market || 'unspecified market'}
-- ${inputs.property.bedrooms}bd/${inputs.property.bathrooms}ba, ${inputs.property.sqft} sqft, built ${inputs.property.yearBuilt}
-- Purchase price: $${inputs.property.purchasePrice.toLocaleString()}
-
-Financing: ${inputs.financing.loanType === 'cash' ? 'Cash purchase' : `${inputs.financing.downPaymentPct}% down, ${inputs.financing.interestRate}% rate, ${inputs.financing.loanTerm}yr ${inputs.financing.loanType}`}
-- Total cash required: $${Math.round(metrics.totalCashInvested).toLocaleString()}
-
-Revenue Assumptions:
-- ADR: $${inputs.revenue.adr}, Occupancy: ${inputs.revenue.occupancyRate}%, Avg stay: ${inputs.revenue.avgStayLength} nights
-- Gross revenue: $${Math.round(metrics.grossRevenue).toLocaleString()}
-- Platform: ${inputs.revenue.platform}, fee: ${inputs.revenue.platformFeePct}%
-
-Key Metrics:
+  // Strategy-specific metrics context
+  const metricsContext: Record<Strategy, string> = {
+    str: `Key Metrics (STR):
 - Monthly cash flow: $${Math.round(metrics.monthlyCashFlow).toLocaleString()}
 - Cash-on-cash return: ${metrics.cocReturn.toFixed(1)}%
 - Cap rate: ${metrics.capRate.toFixed(1)}%
@@ -154,15 +140,58 @@ Key Metrics:
 - Break-even occupancy: ${metrics.breakEvenOccupancy.toFixed(1)}%
 - IRR (w/ exit): ${metrics.irr !== null ? metrics.irr.toFixed(1) + '%' : 'N/A'}
 - 5yr Total Return: ${metrics.totalReturnPct !== null ? metrics.totalReturnPct.toFixed(1) + '%' : 'N/A'}
+- Total cash required: $${Math.round(metrics.totalCashInvested).toLocaleString()}`,
+    ltr: `Key Metrics (LTR):
+- Monthly rent: $${inputs.ltr.monthlyRent.toLocaleString()}
+- Annual gross rent: $${(inputs.ltr.monthlyRent * 12).toLocaleString()}
+- 1% rule: ${(inputs.ltr.monthlyRent / inputs.property.purchasePrice * 100).toFixed(2)}% (${inputs.ltr.monthlyRent / inputs.property.purchasePrice >= 0.01 ? 'PASS' : 'FAIL'})
+- GRM: ${(inputs.property.purchasePrice / (inputs.ltr.monthlyRent * 12)).toFixed(1)}
+- Vacancy: ${inputs.ltr.vacancyRatePct}%`,
+    flip: `Key Metrics (Flip):
+- ARV: $${inputs.flip.arv.toLocaleString()}
+- Total reno: $${Math.round(inputs.flip.renovationBudget * (1 + inputs.flip.contingencyPct / 100)).toLocaleString()}
+- 70% rule MAO: $${Math.round(inputs.flip.arv * 0.70 - inputs.flip.renovationBudget * (1 + inputs.flip.contingencyPct / 100)).toLocaleString()}
+- Meets 70% rule: ${inputs.property.purchasePrice <= inputs.flip.arv * 0.70 - inputs.flip.renovationBudget * (1 + inputs.flip.contingencyPct / 100) ? 'YES' : 'NO'}
+- Hold time: ${inputs.flip.totalHoldMonths} months
+- Financing: ${inputs.flip.financingType}`,
+    brrrr: `Key Metrics (BRRRR):
+- ARV: $${inputs.brrrr.arv.toLocaleString()}
+- Total reno: $${inputs.brrrr.renovationBudget.toLocaleString()}
+- All-in cost: ~$${Math.round(inputs.property.purchasePrice + inputs.brrrr.renovationBudget).toLocaleString()}
+- Refi loan (${inputs.brrrr.refiLTV}% of ARV): $${Math.round(inputs.brrrr.arv * inputs.brrrr.refiLTV / 100).toLocaleString()}
+- Monthly rent post-refi: $${inputs.brrrr.monthlyRent.toLocaleString()}
+- Seasoning: ${inputs.brrrr.seasoningMonths} months`,
+    wholesale: `Key Metrics (Wholesale):
+- ARV: $${inputs.wholesale.arv.toLocaleString()}
+- Reno estimate: $${inputs.wholesale.renovationEstimate.toLocaleString()}
+- MAO (${inputs.wholesale.maoDiscountPct}% rule): $${Math.round(inputs.wholesale.arv * inputs.wholesale.maoDiscountPct / 100 - inputs.wholesale.renovationEstimate - inputs.wholesale.assignmentFee).toLocaleString()}
+- Assignment fee: $${inputs.wholesale.assignmentFee.toLocaleString()}
+- Asking price: $${inputs.property.purchasePrice.toLocaleString()}
+- Spread: $${Math.round(inputs.wholesale.arv * inputs.wholesale.maoDiscountPct / 100 - inputs.wholesale.renovationEstimate - inputs.wholesale.assignmentFee - inputs.property.purchasePrice).toLocaleString()}
+- Earnest money at risk: $${inputs.wholesale.earnestMoney.toLocaleString()}`,
+  };
 
+  const userPrompt = `Analyze this ${strategy.toUpperCase()} deal:
+
+${strategyInputs[strategy]}
+
+Property: ${inputs.property.propertyType} in ${inputs.property.market || 'unspecified market'}
+- ${inputs.property.bedrooms}bd/${inputs.property.bathrooms}ba, ${inputs.property.sqft} sqft, built ${inputs.property.yearBuilt}
+- Purchase price: $${inputs.property.purchasePrice.toLocaleString()}
+
+${strategy !== 'wholesale' ? `Financing: ${inputs.financing.loanType === 'cash' ? 'Cash purchase' : `${inputs.financing.downPaymentPct}% down, ${inputs.financing.interestRate}% rate, ${inputs.financing.loanTerm}yr ${inputs.financing.loanType}`}` : ''}
+
+${metricsContext[strategy]}
+
+${(strategy === 'str' || strategy === 'ltr' || strategy === 'brrrr') ? `
 Passive Activity Status: ${metrics.passiveStatus?.pathway ?? 'Not analyzed'}
 Exit Assumptions: Year ${inputs.tax.exitYear ?? 5}, ${inputs.tax.sellingCostsPct ?? 7}% selling costs${inputs.tax.exchange1031 ? ', 1031 exchange planned' : ''}
 ${metrics.exitAnalysis ? `After-tax exit proceeds: $${Math.round(metrics.exitAnalysis.afterTaxProceeds).toLocaleString()}` : ''}
-Appreciation assumption: ${inputs.appreciationRate}%/yr
+Appreciation assumption: ${inputs.appreciationRate}%/yr` : ''}
 
-5-Year Projection: ${JSON.stringify(projection5yr)}
+${(strategy === 'str') ? `5-Year Projection: ${JSON.stringify(projection5yr)}` : ''}
 
-${taxInfo}`;
+${(strategy === 'str' || strategy === 'ltr' || strategy === 'brrrr') ? taxInfo : ''}`;
 
   try {
     const openai = getOpenAI();
