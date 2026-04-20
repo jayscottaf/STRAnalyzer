@@ -28,7 +28,7 @@ interface Props {
 
 const MAX_CHARS = 10_000;
 
-type InputMode = 'text' | 'image';
+type InputMode = 'text' | 'image' | 'pdf';
 
 export default function ListingExtractor({ onApply, dispatch }: Props) {
   const [open, setOpen] = useState(false);
@@ -36,6 +36,9 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
   const [text, setText] = useState('');
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageName, setImageName] = useState('');
+  const [pdfText, setPdfText] = useState<string | null>(null);
+  const [pdfName, setPdfName] = useState('');
+  const [pdfParsing, setPdfParsing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ExtractedData | null>(null);
@@ -44,6 +47,9 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
     setText('');
     setImageBase64(null);
     setImageName('');
+    setPdfText(null);
+    setPdfName('');
+    setPdfParsing(false);
     setResult(null);
     setError(null);
     setLoading(false);
@@ -71,18 +77,62 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
     reader.readAsDataURL(file);
   }
 
+  async function handlePdfUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      setError('PDF must be under 10MB');
+      return;
+    }
+    setPdfName(file.name);
+    setPdfParsing(true);
+    setError(null);
+
+    try {
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pages: string[] = [];
+      const maxPages = Math.min(pdf.numPages, 10);
+
+      for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pageText = content.items.map((item: any) => item.str).join(' ');
+        pages.push(pageText);
+      }
+
+      const fullText = pages.join('\n\n').trim();
+      if (fullText.length < 20) {
+        setError('Could not extract text from this PDF. It may be a scanned image — try the Image upload instead.');
+        setPdfText(null);
+      } else {
+        setPdfText(fullText);
+      }
+    } catch (err) {
+      setError('Failed to parse PDF. Try pasting the text manually instead.');
+      setPdfText(null);
+    } finally {
+      setPdfParsing(false);
+    }
+  }
+
   async function handleExtract() {
     if (mode === 'text' && !text.trim()) return;
     if (mode === 'image' && !imageBase64) return;
+    if (mode === 'pdf' && !pdfText) return;
 
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
-      const body = mode === 'text'
-        ? { text: text.slice(0, MAX_CHARS) }
-        : { image: imageBase64 };
+      const body = mode === 'image'
+        ? { image: imageBase64 }
+        : { text: (mode === 'pdf' ? pdfText! : text).slice(0, MAX_CHARS) };
 
       const res = await fetch('/api/extract-listing', {
         method: 'POST',
@@ -196,7 +246,16 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
                           mode === 'image' ? 'bg-bg-elevated text-text-foreground' : 'text-text-muted hover:text-text-foreground'
                         }`}
                       >
-                        Upload Image
+                        Image
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMode('pdf')}
+                        className={`flex-1 h-7 text-[11px] font-medium rounded transition-colors ${
+                          mode === 'pdf' ? 'bg-bg-elevated text-text-foreground' : 'text-text-muted hover:text-text-foreground'
+                        }`}
+                      >
+                        PDF
                       </button>
                     </div>
 
@@ -254,11 +313,59 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
                       </>
                     )}
 
+                    {mode === 'pdf' && (
+                      <>
+                        <p className="text-[11px] text-text-muted mb-2">
+                          Print a Zillow, Redfin, or MLS listing to PDF, then upload it here. Text will be extracted automatically.
+                        </p>
+                        {!pdfText && !pdfParsing ? (
+                          <label className="flex flex-col items-center justify-center h-40 bg-bg-base border-2 border-dashed border-border-default rounded-md cursor-pointer hover:border-accent-blue transition-colors">
+                            <svg className="w-8 h-8 text-text-muted mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                            </svg>
+                            <span className="text-xs text-text-muted">Click to upload PDF</span>
+                            <span className="text-[10px] text-text-muted/60 mt-0.5">Max 10MB, up to 10 pages</span>
+                            <input
+                              type="file"
+                              accept=".pdf,application/pdf"
+                              onChange={handlePdfUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        ) : pdfParsing ? (
+                          <div className="flex flex-col items-center justify-center h-40 bg-bg-base border border-border-default rounded-md">
+                            <div className="w-6 h-6 border-2 border-accent-blue border-t-transparent rounded-full animate-spin mb-2" />
+                            <span className="text-xs text-text-muted">Parsing PDF...</span>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <div className="h-40 bg-bg-base border border-border-default rounded-md p-3 overflow-y-auto">
+                              <div className="text-[10px] text-text-muted font-mono whitespace-pre-wrap leading-relaxed">
+                                {pdfText!.slice(0, 2000)}{pdfText!.length > 2000 ? '...' : ''}
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between mt-1.5">
+                              <span className="text-[10px] text-text-muted">
+                                {pdfName} &middot; {pdfText!.length.toLocaleString()} chars extracted
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => { setPdfText(null); setPdfName(''); }}
+                                className="text-[10px] text-text-muted hover:text-accent-red"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
                     <div className="flex items-center justify-end mt-3 gap-2">
                       <button
                         type="button"
                         onClick={close}
-                        disabled={loading}
+                        disabled={loading || pdfParsing}
                         className="h-8 px-3 text-[11px] font-medium rounded-md border border-border-default text-text-muted hover:text-text-foreground transition-colors"
                       >
                         Cancel
@@ -266,7 +373,7 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
                       <button
                         type="button"
                         onClick={handleExtract}
-                        disabled={loading || (mode === 'text' ? !text.trim() : !imageBase64)}
+                        disabled={loading || pdfParsing || (mode === 'text' ? !text.trim() : mode === 'image' ? !imageBase64 : !pdfText)}
                         className="h-8 px-4 text-[11px] font-medium rounded-md bg-accent-blue text-white hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         {loading ? 'Extracting…' : 'Extract Details'}
