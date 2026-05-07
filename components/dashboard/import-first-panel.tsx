@@ -24,6 +24,7 @@ export default function ImportFirstPanel({ onApply, dispatch }: Props) {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ExtractedListingData | null>(null);
+  const [appliedMessage, setAppliedMessage] = useState<string | null>(null);
 
   async function handleAnalyze() {
     const trimmedUrl = listingUrl.trim();
@@ -33,6 +34,7 @@ export default function ImportFirstPanel({ onApply, dispatch }: Props) {
     setStatus('Trying to read the shared listing link...');
     setError(null);
     setResult(null);
+    setAppliedMessage(null);
 
     try {
       if (!isValidHttpUrl(trimmedUrl)) {
@@ -82,7 +84,9 @@ export default function ImportFirstPanel({ onApply, dispatch }: Props) {
     if (!result) return;
     applyExtractedListing(result, onApply, dispatch);
     hapticSuccess();
+    setAppliedMessage(result.market ? `Applied ${result.market}` : 'Listing details applied');
     setResult(null);
+    setListingUrl('');
   }
 
   function handleStartBlank() {
@@ -90,6 +94,7 @@ export default function ImportFirstPanel({ onApply, dispatch }: Props) {
     setResult(null);
     setError(null);
     setStatus(null);
+    setAppliedMessage('Started a blank deal');
     dispatch({ type: 'RESET_TO_DEFAULTS' });
     hapticSuccess();
   }
@@ -97,17 +102,17 @@ export default function ImportFirstPanel({ onApply, dispatch }: Props) {
   const source = listingUrl.trim() ? getListingSource(listingUrl.trim()) : '';
 
   return (
-    <section className="rounded-lg border border-border-default bg-bg-surface p-3 sm:p-4">
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+    <section className="rounded-lg border border-border-default bg-bg-surface p-3">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-[10px] font-semibold uppercase tracking-wider text-accent-blue">
             Analyze a listing
           </div>
-          <h2 className="mt-0.5 text-base sm:text-lg font-semibold text-text-foreground">
+          <h2 className="mt-0.5 text-base font-semibold text-text-foreground">
             Start from a listing URL
           </h2>
-          <p className="mt-1 text-xs text-text-muted">
-            Paste a listing link, then review the extracted deal inputs before applying them.
+          <p className="mt-0.5 hidden sm:block text-xs text-text-muted">
+            Paste a listing link, review extracted inputs, then apply them to the active deal.
           </p>
         </div>
         {source && (
@@ -117,7 +122,7 @@ export default function ImportFirstPanel({ onApply, dispatch }: Props) {
         )}
       </div>
 
-      <div className="mt-3 flex flex-col sm:flex-row gap-2">
+      <div className="mt-2.5 flex flex-col sm:flex-row gap-2">
         <input
           type="url"
           value={listingUrl}
@@ -133,57 +138,64 @@ export default function ImportFirstPanel({ onApply, dispatch }: Props) {
           }}
           placeholder="https://www.zillow.com/homedetails/..."
           disabled={loading}
-          className="h-11 sm:h-10 flex-1 min-w-0 rounded-md border border-border-default bg-bg-base px-3 text-sm sm:text-xs text-text-foreground outline-none transition-colors focus:border-accent-blue disabled:opacity-50"
+          className="h-10 flex-1 min-w-0 rounded-md border border-border-default bg-bg-base px-3 text-xs text-text-foreground outline-none transition-colors focus:border-accent-blue disabled:opacity-50"
         />
         <button
           type="button"
           onClick={() => void handleAnalyze()}
           disabled={loading || !listingUrl.trim()}
-          className="h-11 sm:h-10 px-4 rounded-md bg-accent-blue text-white text-sm sm:text-xs font-semibold hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="h-10 px-4 rounded-md bg-accent-blue text-white text-xs font-semibold hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
+          {loading && <span className="h-3.5 w-3.5 rounded-full border-2 border-white/50 border-t-white animate-spin" />}
           {loading ? 'Analyzing...' : 'Analyze Listing'}
         </button>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 sm:flex gap-2">
+      <div className="mt-2 grid grid-cols-4 gap-1.5">
         <ListingExtractor
           onApply={onApply}
           dispatch={dispatch}
           triggerMode="text"
           triggerLabel="Paste Text"
-          triggerClassName="h-9 px-3 rounded-md border border-border-default bg-bg-base text-xs font-medium text-text-muted hover:text-text-foreground hover:border-border-light transition-colors"
+          triggerClassName="h-8 px-2 rounded-md border border-border-default bg-bg-base text-[10px] sm:text-xs font-medium text-text-muted hover:text-text-foreground hover:border-border-light transition-colors"
         />
         <ListingExtractor
           onApply={onApply}
           dispatch={dispatch}
           triggerMode="pdf"
           triggerLabel="Upload PDF"
-          triggerClassName="h-9 px-3 rounded-md border border-border-default bg-bg-base text-xs font-medium text-text-muted hover:text-text-foreground hover:border-border-light transition-colors"
+          triggerClassName="h-8 px-2 rounded-md border border-border-default bg-bg-base text-[10px] sm:text-xs font-medium text-text-muted hover:text-text-foreground hover:border-border-light transition-colors"
         />
         <ListingExtractor
           onApply={onApply}
           dispatch={dispatch}
           triggerMode="image"
           triggerLabel="Upload Image"
-          triggerClassName="h-9 px-3 rounded-md border border-border-default bg-bg-base text-xs font-medium text-text-muted hover:text-text-foreground hover:border-border-light transition-colors"
+          triggerClassName="h-8 px-2 rounded-md border border-border-default bg-bg-base text-[10px] sm:text-xs font-medium text-text-muted hover:text-text-foreground hover:border-border-light transition-colors"
         />
         <button
           type="button"
           onClick={handleStartBlank}
-          className="h-9 px-3 rounded-md border border-border-default bg-bg-base text-xs font-medium text-text-muted hover:text-text-foreground hover:border-border-light transition-colors"
+          className="h-8 px-2 rounded-md border border-border-default bg-bg-base text-[10px] sm:text-xs font-medium text-text-muted hover:text-text-foreground hover:border-border-light transition-colors"
         >
           Start Blank
         </button>
       </div>
 
       {status && (
-        <div className="mt-3 rounded-md bg-accent-blue-bg px-3 py-2 text-xs text-accent-blue">
+        <div className="mt-2 rounded-md bg-accent-blue-bg px-3 py-2 text-xs text-accent-blue">
           {status}
         </div>
       )}
 
+      {appliedMessage && !result && !error && !status && (
+        <div className="mt-2 rounded-md bg-accent-green-bg px-3 py-2 text-xs text-accent-green">
+          {appliedMessage}
+        </div>
+      )}
+
       {error && (
-        <div className="mt-3 rounded-md bg-accent-red-bg px-3 py-2 text-xs text-accent-red">
+        <div className="mt-2 rounded-md bg-accent-red-bg px-3 py-2 text-xs text-accent-red">
           {error}
           <div className="mt-1 text-[11px] text-text-muted">
             Try Paste Text, Upload PDF, or Upload Image if the listing site blocks the page read.
@@ -251,7 +263,7 @@ export default function ImportFirstPanel({ onApply, dispatch }: Props) {
           )}
 
           {result.revenueReasoning && (
-            <p className="mt-2 text-[11px] italic text-text-muted">
+            <p className="mt-2 max-h-10 overflow-hidden text-[11px] italic text-text-muted">
               {result.revenueReasoning}
             </p>
           )}
