@@ -94,24 +94,32 @@ export default function DealScore({ metrics, strategy = 'str' }: Props) {
   const { letter, color, bgColor } = getGrade(composite);
 
   return (
-    <div className="rounded-lg border border-border-default bg-bg-surface px-4 py-2.5 flex items-center gap-4">
-      <div className="flex items-center gap-2.5 shrink-0">
-        <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center`}>
-          <span className="text-lg font-black text-white">{letter}</span>
+    <div className="rounded-lg border border-border-default bg-bg-surface p-3 lg:px-4 lg:py-2.5 flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4">
+      <div className="flex items-center justify-between lg:justify-start gap-2.5 shrink-0">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center`}>
+            <span className="text-lg font-black text-white">{letter}</span>
+          </div>
+          <div>
+            <div className="text-[10px] text-text-muted uppercase tracking-wider">Deal Score</div>
+            <div className={`text-sm font-bold ${color}`}>{composite}/100</div>
+          </div>
         </div>
-        <div>
-          <div className="text-[10px] text-text-muted uppercase tracking-wider">Deal Score</div>
-          <div className={`text-sm font-bold ${color}`}>{composite}/100</div>
+        <div className={`lg:hidden text-xs font-semibold ${color}`}>
+          {composite >= 70 ? 'Strong' : composite >= 50 ? 'Needs work' : 'High risk'}
         </div>
       </div>
 
-      <div className="w-px h-8 bg-border-default shrink-0 hidden sm:block" />
+      <div className="w-px h-8 bg-border-default shrink-0 hidden lg:block" />
 
-      <div className="flex-1 grid grid-cols-3 sm:grid-cols-6 gap-x-3 gap-y-1">
+      <div className="flex-1 grid grid-cols-2 lg:grid-cols-6 gap-x-3 gap-y-2 lg:gap-y-1">
         {factors.map(({ label, score }) => (
-          <div key={label} className="flex items-center gap-1.5">
-            <span className="text-[9px] text-text-muted w-8 shrink-0">{label}</span>
-            <div className="flex-1 h-1.5 bg-bg-base rounded-full overflow-hidden min-w-[30px]">
+          <div key={label} className="min-w-0">
+            <div className="flex items-center justify-between gap-2 mb-1 lg:mb-0">
+              <span className="text-[10px] lg:text-[9px] text-text-muted truncate">{label}</span>
+              <span className="text-[10px] lg:text-[9px] text-text-muted tabular-nums">{Math.round(score)}</span>
+            </div>
+            <div className="h-1.5 bg-bg-base rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all"
                 style={{
@@ -120,7 +128,6 @@ export default function DealScore({ metrics, strategy = 'str' }: Props) {
                 }}
               />
             </div>
-            <span className="text-[9px] text-text-muted w-5 text-right">{Math.round(score)}</span>
           </div>
         ))}
       </div>
