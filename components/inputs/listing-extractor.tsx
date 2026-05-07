@@ -28,12 +28,37 @@ interface Props {
 
 const MAX_CHARS = 10_000;
 
-type InputMode = 'text' | 'image' | 'pdf';
+type InputMode = 'text' | 'url' | 'image' | 'pdf';
+
+function getListingSource(rawUrl: string): string {
+  try {
+    const host = new URL(rawUrl).hostname.replace(/^www\./, '').toLowerCase();
+    if (host.includes('zillow.com')) return 'Zillow';
+    if (host.includes('redfin.com')) return 'Redfin';
+    if (host.includes('realtor.com')) return 'Realtor.com';
+    if (host.includes('trulia.com')) return 'Trulia';
+    if (host.includes('homes.com')) return 'Homes.com';
+    if (host.includes('mls')) return 'MLS';
+    return host;
+  } catch {
+    return '';
+  }
+}
+
+function isValidHttpUrl(rawUrl: string): boolean {
+  try {
+    const url = new URL(rawUrl);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 export default function ListingExtractor({ onApply, dispatch }: Props) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<InputMode>('text');
   const [text, setText] = useState('');
+  const [listingUrl, setListingUrl] = useState('');
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageName, setImageName] = useState('');
   const [pdfText, setPdfText] = useState<string | null>(null);
@@ -41,10 +66,12 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
   const [pdfParsing, setPdfParsing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
   const [result, setResult] = useState<ExtractedData | null>(null);
 
   function reset() {
     setText('');
+    setListingUrl('');
     setImageBase64(null);
     setImageName('');
     setPdfText(null);
@@ -52,6 +79,7 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
     setPdfParsing(false);
     setResult(null);
     setError(null);
+    setStatus(null);
     setLoading(false);
   }
 
@@ -112,7 +140,7 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
       } else {
         setPdfText(fullText);
       }
-    } catch (err) {
+    } catch {
       setError('Failed to parse PDF. Try pasting the text manually instead.');
       setPdfText(null);
     } finally {
@@ -122,17 +150,47 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
 
   async function handleExtract() {
     if (mode === 'text' && !text.trim()) return;
+    if (mode === 'url' && !listingUrl.trim()) return;
     if (mode === 'image' && !imageBase64) return;
     if (mode === 'pdf' && !pdfText) return;
 
     setLoading(true);
     setError(null);
+    setStatus(mode === 'url' ? 'Trying to read the shared listing link...' : null);
     setResult(null);
 
     try {
-      const body = mode === 'image'
-        ? { image: imageBase64 }
-        : { text: (mode === 'pdf' ? pdfText! : text).slice(0, MAX_CHARS) };
+      let body: { image?: string | null; text?: string };
+
+      if (mode === 'url') {
+        const trimmedUrl = listingUrl.trim();
+        if (!isValidHttpUrl(trimmedUrl)) {
+          throw new Error('Enter a valid listing URL that starts with http:// or https://.');
+        }
+
+        const urlRes = await fetch('/api/extract-listing-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: trimmedUrl }),
+        });
+
+        if (!urlRes.ok) {
+          const data = await urlRes.json().catch(() => ({ error: 'Could not read listing URL' }));
+          throw new Error(data.error || 'Could not read listing URL. Try PDF, screenshot, or pasted text.');
+        }
+
+        const data = await urlRes.json() as { text?: string; chars?: number };
+        if (!data.text) {
+          throw new Error('Could not read useful listing details from that URL. Try PDF, screenshot, or pasted text.');
+        }
+
+        setStatus(`Read ${data.chars?.toLocaleString() ?? 'some'} chars from the listing. Extracting details...`);
+        body = { text: data.text.slice(0, MAX_CHARS) };
+      } else {
+        body = mode === 'image'
+          ? { image: imageBase64 }
+          : { text: (mode === 'pdf' ? pdfText! : text).slice(0, MAX_CHARS) };
+      }
 
       const res = await fetch('/api/extract-listing', {
         method: 'POST',
@@ -150,6 +208,7 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Extraction failed');
     } finally {
+      setStatus(null);
       setLoading(false);
     }
   }
@@ -241,6 +300,15 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
                       </button>
                       <button
                         type="button"
+                        onClick={() => setMode('url')}
+                        className={`flex-1 h-7 text-[11px] font-medium rounded transition-colors ${
+                          mode === 'url' ? 'bg-bg-elevated text-text-foreground' : 'text-text-muted hover:text-text-foreground'
+                        }`}
+                      >
+                        URL
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setMode('image')}
                         className={`flex-1 h-7 text-[11px] font-medium rounded transition-colors ${
                           mode === 'image' ? 'bg-bg-elevated text-text-foreground' : 'text-text-muted hover:text-text-foreground'
@@ -275,7 +343,37 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
                           {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} chars
                         </div>
                       </>
-                    ) : (
+                    ) : mode === 'url' ? (
+                      <>
+                        <p className="text-[11px] text-text-muted mb-2">
+                          Paste a shared listing link here. The app will try a normal page read, then fall back if the site blocks it.
+                        </p>
+                        <input
+                          type="url"
+                          value={listingUrl}
+                          onChange={(e) => {
+                            setListingUrl(e.target.value);
+                            setError(null);
+                          }}
+                          placeholder="https://www.zillow.com/homedetails/..."
+                          disabled={loading}
+                          className="w-full h-10 bg-bg-base border border-border-default rounded-md text-xs text-text-foreground px-3 outline-none focus:border-accent-blue disabled:opacity-50"
+                        />
+                        {listingUrl.trim() && (
+                          <div className="mt-2 rounded-md border border-border-default bg-bg-base px-3 py-2">
+                            <div className="text-[10px] font-semibold text-text-muted uppercase tracking-wider mb-1">
+                              {getListingSource(listingUrl.trim()) || 'Listing URL'}
+                            </div>
+                            <p className="text-[11px] text-text-muted leading-relaxed">
+                              The app will try to read public page text from this link. If the site blocks it, use Paste Text, PDF, or Image instead.
+                            </p>
+                          </div>
+                        )}
+                        <div className="mt-2 rounded-md bg-accent-amber-bg px-3 py-2 text-[11px] text-accent-amber leading-relaxed">
+                          This is best-effort only: no CAPTCHA bypass, login/session scraping, proxy rotation, or anti-bot workarounds.
+                        </div>
+                      </>
+                    ) : mode === 'image' ? (
                       <>
                         <p className="text-[11px] text-text-muted mb-2">
                           Upload a screenshot, photo of an MLS sheet, agent flyer, or any image with property details.
@@ -311,7 +409,7 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
                           </div>
                         )}
                       </>
-                    )}
+                    ) : null}
 
                     {mode === 'pdf' && (
                       <>
@@ -373,10 +471,20 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
                       <button
                         type="button"
                         onClick={handleExtract}
-                        disabled={loading || pdfParsing || (mode === 'text' ? !text.trim() : mode === 'image' ? !imageBase64 : !pdfText)}
+                        disabled={
+                          loading
+                          || pdfParsing
+                          || (mode === 'text'
+                            ? !text.trim()
+                            : mode === 'url'
+                              ? !listingUrl.trim()
+                              : mode === 'image'
+                                ? !imageBase64
+                                : !pdfText)
+                        }
                         className="h-8 px-4 text-[11px] font-medium rounded-md bg-accent-blue text-white hover:bg-accent-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        {loading ? 'Extracting…' : 'Extract Details'}
+                        {loading ? 'Extracting...' : mode === 'url' ? 'Use Link' : 'Extract Details'}
                       </button>
                     </div>
                   </>
@@ -387,6 +495,12 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
                     <div className="h-3 skeleton-shimmer rounded w-1/3" />
                     <div className="h-3 skeleton-shimmer rounded w-1/2" />
                     <div className="h-3 skeleton-shimmer rounded w-2/5" />
+                  </div>
+                )}
+
+                {status && (
+                  <div className="mt-3 px-3 py-2 rounded bg-accent-blue-bg text-xs text-accent-blue">
+                    {status}
                   </div>
                 )}
 

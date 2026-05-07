@@ -16,6 +16,22 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Environment Variables
+
+Copy `.env.example` to `.env.local` and set:
+
+- `OPENAI_API_KEY`: Required for AI listing extraction and analysis.
+- `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`: Optional. Enables Google Places address autocomplete in the Property Address field.
+
+Google Places requires a Google Cloud billing account and a restricted API key. For production, restrict the key to your deployed domain. For local development, allow `localhost` / `127.0.0.1`. Google publishes current pricing and free monthly SKU details at:
+
+- https://mapsplatform.google.com/pricing/?hl=en-US
+- https://developers.google.com/maps/documentation/places/web-service/usage-and-billing
+
+## Listing Links
+
+The listing extractor accepts pasted text, images, PDFs, and listing URLs. The URL tab makes a best-effort normal page read with timeout and safety limits, then falls back if the listing site blocks automated access or returns too little usable text. It does not bypass CAPTCHA, log in, use proxy rotation, or work around anti-bot systems. For public or scaled use, replace direct listing-site reads with a licensed real-estate data API.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

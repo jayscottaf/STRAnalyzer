@@ -2,6 +2,7 @@
 
 import type { PropertyInputs as PropertyInputsType, DealAction } from '@/lib/types';
 import { PROPERTY_TYPES } from '@/lib/constants';
+import AddressAutocomplete from './address-autocomplete';
 import InputField from './input-field';
 import ListingExtractor from './listing-extractor';
 
@@ -16,11 +17,10 @@ export default function PropertyInputs({ values, onChange, dispatch }: Props) {
     <div>
       <ListingExtractor onApply={onChange} dispatch={dispatch} />
 
-      <InputField
+      <AddressAutocomplete
         label="Property Address"
-        type="text"
         value={values.market}
-        onChange={(v) => onChange({ market: v as string })}
+        onChange={(v) => onChange({ market: v })}
         placeholder="e.g. 79 W High St, Ballston Spa, NY 12020"
       />
 
