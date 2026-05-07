@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 
 interface InputFieldProps {
   label: string;
@@ -34,7 +34,23 @@ export default function InputField({
   disabled,
 }: InputFieldProps) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [draftValue, setDraftValue] = useState(() => String(value));
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const inputValue = type === 'number' && isEditing ? draftValue : value;
+
+  function commitNumber(rawValue: string) {
+    const num = parseFloat(rawValue);
+
+    if (Number.isNaN(num)) {
+      setDraftValue(String(value));
+      return;
+    }
+
+    const bounded = Math.min(max ?? num, Math.max(min ?? num, num));
+    setDraftValue(String(bounded));
+    onChange(bounded);
+  }
 
   return (
     <div className="mb-3">
@@ -72,13 +88,30 @@ export default function InputField({
         <input
           type={type}
           inputMode={type === 'number' ? (step && step % 1 !== 0 ? 'decimal' : 'numeric') : undefined}
-          value={value}
+          value={inputValue}
+          onFocus={() => {
+            if (type === 'number') {
+              setIsEditing(true);
+              setDraftValue(String(value));
+            }
+          }}
           onChange={(e) => {
             if (type === 'number') {
-              const num = parseFloat(e.target.value);
-              onChange(isNaN(num) ? 0 : num);
+              const nextValue = e.target.value;
+              const num = parseFloat(nextValue);
+
+              setDraftValue(nextValue);
+              if (!Number.isNaN(num)) {
+                onChange(num);
+              }
             } else {
               onChange(e.target.value);
+            }
+          }}
+          onBlur={() => {
+            if (type === 'number') {
+              commitNumber(draftValue);
+              setIsEditing(false);
             }
           }}
           min={min}
