@@ -19,6 +19,7 @@ import ProjectionTable from '@/components/dashboard/projection-table';
 import AIAnalysisPanel from '@/components/ai/ai-analysis-panel';
 import CashFlowChart from '@/components/dashboard/cash-flow-chart';
 import DealScore from '@/components/dashboard/deal-score';
+import ImportFirstPanel from '@/components/dashboard/import-first-panel';
 import TornadoChart from '@/components/dashboard/tornado-chart';
 import StickyKpiBar from '@/components/dashboard/sticky-kpi-bar';
 import OfferSolver from '@/components/dashboard/offer-solver';
@@ -45,11 +46,10 @@ export default function HomePage() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiCooldown, setAiCooldown] = useState(false);
   const [lastRunSnapshot, setLastRunSnapshot] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Strategy | 'compare'>('str');
 
   const isStale = aiAnalysis !== null && lastRunSnapshot !== null &&
     JSON.stringify(inputs) !== lastRunSnapshot;
-
-  const strategy = inputs.activeStrategy;
 
   // Compute per-strategy metrics
   const ltrMetrics = useMemo(() => hydrated ? calculateLTRMetrics(inputs) : null, [inputs, hydrated]);
@@ -89,7 +89,7 @@ export default function HomePage() {
       setAiCooldown(true);
       setTimeout(() => setAiCooldown(false), 5000);
     }
-  }, [inputs, strMetrics, aiLoading, aiCooldown]);
+  }, [inputs, strMetrics, aiLoading, aiCooldown, activeTab]);
 
   const handleStrategyChange = useCallback((s: Strategy | 'compare') => {
     if (s === 'compare') {
@@ -101,10 +101,7 @@ export default function HomePage() {
     }
   }, [dispatch]);
 
-  const [activeTab, setActiveTab] = useState<Strategy | 'compare'>('str');
-
   // Sync activeTab when strategy changes from sidebar selector
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   if (hydrated && activeTab !== 'compare' && activeTab !== inputs.activeStrategy) {
     setActiveTab(inputs.activeStrategy);
   }
@@ -162,6 +159,11 @@ export default function HomePage() {
                 {errors.map((e) => e.message).join(' · ')}
               </div>
             )}
+
+            <ImportFirstPanel
+              onApply={(updates) => dispatch({ type: 'UPDATE_PROPERTY', payload: updates })}
+              dispatch={dispatch}
+            />
 
             {/* Compare tab */}
             {activeTab === 'compare' && (

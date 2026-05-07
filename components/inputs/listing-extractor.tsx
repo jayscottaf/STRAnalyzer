@@ -4,59 +4,32 @@ import { useState } from 'react';
 import type { PropertyInputs, DealAction } from '@/lib/types';
 import { formatCurrency } from '@/lib/format';
 import { hapticSuccess } from '@/lib/haptics';
-
-interface ExtractedData {
-  market?: string | null;
-  propertyType?: string | null;
-  bedrooms?: number | null;
-  bathrooms?: number | null;
-  sqft?: number | null;
-  purchasePrice?: number | null;
-  yearBuilt?: number | null;
-  suggestedADR?: number | null;
-  suggestedOccupancy?: number | null;
-  suggestedMonthlyRent?: number | null;
-  suggestedARV?: number | null;
-  revenueReasoning?: string | null;
-  confidence?: Record<string, 'high' | 'low'>;
-}
+import {
+  MAX_LISTING_CHARS,
+  type ExtractedListingData,
+  type ListingInputMode,
+  applyExtractedListing,
+  getListingSource,
+  isValidHttpUrl,
+} from '@/lib/listing-import';
 
 interface Props {
   onApply: (updates: Partial<PropertyInputs>) => void;
   dispatch?: React.Dispatch<DealAction>;
+  triggerMode?: ListingInputMode;
+  triggerLabel?: string;
+  triggerClassName?: string;
 }
 
-const MAX_CHARS = 10_000;
-
-type InputMode = 'text' | 'url' | 'image' | 'pdf';
-
-function getListingSource(rawUrl: string): string {
-  try {
-    const host = new URL(rawUrl).hostname.replace(/^www\./, '').toLowerCase();
-    if (host.includes('zillow.com')) return 'Zillow';
-    if (host.includes('redfin.com')) return 'Redfin';
-    if (host.includes('realtor.com')) return 'Realtor.com';
-    if (host.includes('trulia.com')) return 'Trulia';
-    if (host.includes('homes.com')) return 'Homes.com';
-    if (host.includes('mls')) return 'MLS';
-    return host;
-  } catch {
-    return '';
-  }
-}
-
-function isValidHttpUrl(rawUrl: string): boolean {
-  try {
-    const url = new URL(rawUrl);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-export default function ListingExtractor({ onApply, dispatch }: Props) {
+export default function ListingExtractor({
+  onApply,
+  dispatch,
+  triggerMode = 'text',
+  triggerLabel = 'Paste Listing (AI Extract)',
+  triggerClassName,
+}: Props) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<InputMode>('text');
+  const [mode, setMode] = useState<ListingInputMode>(triggerMode);
   const [text, setText] = useState('');
   const [listingUrl, setListingUrl] = useState('');
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -67,7 +40,7 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
-  const [result, setResult] = useState<ExtractedData | null>(null);
+  const [result, setResult] = useState<ExtractedListingData | null>(null);
 
   function reset() {
     setText('');
@@ -83,10 +56,15 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
     setLoading(false);
   }
 
+  function openExtractor() {
+    setMode(triggerMode);
+    setOpen(true);
+  }
+
   function close() {
     setOpen(false);
     reset();
-    setMode('text');
+    setMode(triggerMode);
   }
 
   function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -185,11 +163,11 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
         }
 
         setStatus(`Read ${data.chars?.toLocaleString() ?? 'some'} chars from the listing. Extracting details...`);
-        body = { text: data.text.slice(0, MAX_CHARS) };
+        body = { text: data.text.slice(0, MAX_LISTING_CHARS) };
       } else {
         body = mode === 'image'
           ? { image: imageBase64 }
-          : { text: (mode === 'pdf' ? pdfText! : text).slice(0, MAX_CHARS) };
+          : { text: (mode === 'pdf' ? pdfText! : text).slice(0, MAX_LISTING_CHARS) };
       }
 
       const res = await fetch('/api/extract-listing', {
@@ -203,7 +181,7 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
         throw new Error(data.error || `HTTP ${res.status}`);
       }
 
-      const data: ExtractedData = await res.json();
+      const data: ExtractedListingData = await res.json();
       setResult(data);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Extraction failed');
@@ -215,35 +193,7 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
 
   function handleApply() {
     if (!result) return;
-    const updates: Partial<PropertyInputs> = {};
-    if (result.market) updates.market = result.market;
-    if (result.propertyType) updates.propertyType = result.propertyType;
-    if (typeof result.bedrooms === 'number' && result.bedrooms > 0) updates.bedrooms = result.bedrooms;
-    if (typeof result.bathrooms === 'number' && result.bathrooms > 0) updates.bathrooms = result.bathrooms;
-    if (typeof result.sqft === 'number' && result.sqft > 0) updates.sqft = result.sqft;
-    if (typeof result.purchasePrice === 'number' && result.purchasePrice > 0) updates.purchasePrice = result.purchasePrice;
-    if (typeof result.yearBuilt === 'number' && result.yearBuilt > 1800) updates.yearBuilt = result.yearBuilt;
-    onApply(updates);
-
-    // Apply revenue estimates to strategy-specific inputs
-    if (dispatch) {
-      if (typeof result.suggestedADR === 'number' && result.suggestedADR > 0) {
-        dispatch({ type: 'UPDATE_REVENUE', payload: { adr: result.suggestedADR } });
-      }
-      if (typeof result.suggestedOccupancy === 'number' && result.suggestedOccupancy > 0) {
-        dispatch({ type: 'UPDATE_REVENUE', payload: { occupancyRate: result.suggestedOccupancy } });
-      }
-      if (typeof result.suggestedMonthlyRent === 'number' && result.suggestedMonthlyRent > 0) {
-        dispatch({ type: 'UPDATE_LTR', payload: { monthlyRent: result.suggestedMonthlyRent } });
-        dispatch({ type: 'UPDATE_BRRRR', payload: { monthlyRent: result.suggestedMonthlyRent } });
-      }
-      if (typeof result.suggestedARV === 'number' && result.suggestedARV > 0) {
-        dispatch({ type: 'UPDATE_FLIP', payload: { arv: result.suggestedARV } });
-        dispatch({ type: 'UPDATE_BRRRR', payload: { arv: result.suggestedARV } });
-        dispatch({ type: 'UPDATE_WHOLESALE', payload: { arv: result.suggestedARV } });
-      }
-    }
-
+    applyExtractedListing(result, onApply, dispatch);
     hapticSuccess();
     close();
   }
@@ -252,13 +202,15 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        className="w-full h-8 mb-3 px-2.5 text-[11px] font-medium rounded-md border border-accent-blue/40 bg-accent-blue-bg text-accent-blue hover:bg-accent-blue/20 transition-colors flex items-center justify-center gap-1.5"
+        onClick={openExtractor}
+        className={triggerClassName ?? 'w-full h-8 mb-3 px-2.5 text-[11px] font-medium rounded-md border border-accent-blue/40 bg-accent-blue-bg text-accent-blue hover:bg-accent-blue/20 transition-colors flex items-center justify-center gap-1.5'}
       >
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-        Paste Listing (AI Extract)
+        {!triggerClassName && (
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        )}
+        {triggerLabel}
       </button>
 
       {open && (
@@ -334,13 +286,13 @@ export default function ListingExtractor({ onApply, dispatch }: Props) {
                         </p>
                         <textarea
                           value={text}
-                          onChange={(e) => setText(e.target.value.slice(0, MAX_CHARS))}
+                          onChange={(e) => setText(e.target.value.slice(0, MAX_LISTING_CHARS))}
                           placeholder="Paste listing text here..."
                           disabled={loading}
                           className="w-full h-40 bg-bg-base border border-border-default rounded-md text-xs text-text-foreground px-3 py-2 outline-none focus:border-accent-blue resize-none font-mono disabled:opacity-50"
                         />
                         <div className="text-[10px] text-text-muted mt-1">
-                          {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} chars
+                          {text.length.toLocaleString()} / {MAX_LISTING_CHARS.toLocaleString()} chars
                         </div>
                       </>
                     ) : mode === 'url' ? (
