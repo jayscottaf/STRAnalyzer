@@ -41,7 +41,9 @@ interface GoogleMapsWindow extends Window {
   };
 }
 
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAPS_API_KEY = (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '')
+  .trim()
+  .replace(/^["']|["']$/g, '');
 
 export default function AddressAutocomplete({
   label,
@@ -52,7 +54,13 @@ export default function AddressAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<GoogleAutocomplete | null>(null);
   const onChangeRef = useRef(onChange);
-  const [scriptReady, setScriptReady] = useState(false);
+  const [scriptReady, setScriptReady] = useState(() => {
+    if (typeof window === 'undefined' || !GOOGLE_MAPS_API_KEY) return false;
+
+    const googleWindow = window as GoogleMapsWindow;
+    return Boolean(googleWindow.google?.maps?.places?.Autocomplete);
+  });
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -94,9 +102,11 @@ export default function AddressAutocomplete({
     <div className="mb-3">
       {GOOGLE_MAPS_API_KEY && (
         <Script
-          src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`}
+          src={`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&libraries=places`}
           strategy="afterInteractive"
           onLoad={() => setScriptReady(true)}
+          onReady={() => setScriptReady(true)}
+          onError={() => setLoadError(true)}
         />
       )}
       <div className="flex items-center gap-1.5 mb-1">
@@ -114,6 +124,11 @@ export default function AddressAutocomplete({
       {!GOOGLE_MAPS_API_KEY && (
         <p className="mt-1 text-[10px] text-text-muted">
           Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable address suggestions.
+        </p>
+      )}
+      {loadError && (
+        <p className="mt-1 text-[10px] text-text-muted">
+          Address suggestions are unavailable. Manual entry still works.
         </p>
       )}
     </div>
