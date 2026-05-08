@@ -12,6 +12,31 @@ interface Props {
   strategy?: Strategy;
 }
 
+function getLoanTypePreset(loanType: FinancingInputsType['loanType']): Partial<FinancingInputsType> {
+  switch (loanType) {
+    case 'cash':
+      return {
+        loanType,
+        downPaymentPct: 100,
+        interestRate: 0,
+      };
+    case 'conventional':
+      return {
+        loanType,
+        downPaymentPct: 25,
+        interestRate: 7.25,
+        loanTerm: 30,
+      };
+    case 'dscr':
+      return {
+        loanType,
+        downPaymentPct: 20,
+        interestRate: 8,
+        loanTerm: 30,
+      };
+  }
+}
+
 export default function FinancingInputs({ values, property, onChange, strategy = 'str' }: Props) {
   const showFurnishing = strategy === 'str' || strategy === 'ltr';
   const showReserves = strategy === 'str' || strategy === 'ltr' || strategy === 'brrrr';
@@ -27,7 +52,7 @@ export default function FinancingInputs({ values, property, onChange, strategy =
         <label className="text-xs font-medium text-text-muted mb-1 block">Loan Type</label>
         <select
           value={values.loanType}
-          onChange={(e) => onChange({ loanType: e.target.value as FinancingInputsType['loanType'] })}
+          onChange={(e) => onChange(getLoanTypePreset(e.target.value as FinancingInputsType['loanType']))}
           className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
         >
           {LOAN_TYPES.map((t) => (
@@ -37,6 +62,11 @@ export default function FinancingInputs({ values, property, onChange, strategy =
         {values.loanType === 'dscr' && (
           <p className="mt-1 text-[10px] text-accent-amber">
             DSCR loans qualify on property income, not W-2. Typically 0.5-1% higher rate.
+          </p>
+        )}
+        {values.loanType !== 'dscr' && (
+          <p className="mt-1 text-[10px] text-text-muted">
+            Selecting a loan type applies starter terms below; edit any field to override.
           </p>
         )}
       </div>

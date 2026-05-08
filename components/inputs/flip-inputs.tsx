@@ -10,6 +10,32 @@ interface Props {
   onChange: (updates: Partial<FlipInputsType>) => void;
 }
 
+function getFlipFinancingPreset(financingType: FlipInputsType['financingType']): Partial<FlipInputsType> {
+  switch (financingType) {
+    case 'hard_money':
+      return {
+        financingType,
+        hardMoneyRate: 12,
+        hardMoneyPoints: 2,
+        hardMoneyTermMonths: 12,
+      };
+    case 'conventional':
+      return {
+        financingType,
+        hardMoneyRate: 0,
+        hardMoneyPoints: 0,
+        hardMoneyTermMonths: 12,
+      };
+    case 'cash':
+      return {
+        financingType,
+        hardMoneyRate: 0,
+        hardMoneyPoints: 0,
+        hardMoneyTermMonths: 0,
+      };
+  }
+}
+
 export default function FlipInputs({ values, property, onChange }: Props) {
   const contingency = values.renovationBudget * (values.contingencyPct / 100);
   const totalReno = values.renovationBudget + contingency;
@@ -80,13 +106,16 @@ export default function FlipInputs({ values, property, onChange }: Props) {
         <label className="text-xs font-medium text-text-muted mb-1 block">Financing Type</label>
         <select
           value={values.financingType}
-          onChange={(e) => onChange({ financingType: e.target.value as FlipInputsType['financingType'] })}
+          onChange={(e) => onChange(getFlipFinancingPreset(e.target.value as FlipInputsType['financingType']))}
           className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
         >
           <option value="hard_money">Hard Money</option>
           <option value="conventional">Conventional</option>
           <option value="cash">Cash</option>
         </select>
+        <p className="mt-1 text-[10px] text-text-muted">
+          Selecting a type applies starter financing terms; edit any field to override.
+        </p>
       </div>
 
       {values.financingType === 'hard_money' && (

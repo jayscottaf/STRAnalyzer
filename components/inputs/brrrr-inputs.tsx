@@ -37,6 +37,177 @@ const REFI_OPTIONS: { value: BRRRRRefiStrategy; label: string }[] = [
   { value: 'other', label: 'Other / Custom' },
 ];
 
+function getInitialFundingPreset(
+  type: BRRRRInitialFundingType,
+  renovationBudget: number,
+): Partial<BRRRRInputsType> {
+  const fullReno = Math.max(renovationBudget, 0);
+  const halfReno = Math.round(fullReno * 0.5);
+
+  switch (type) {
+    case 'cash':
+      return {
+        initialFundingType: type,
+        initialLoanLtvPct: 0,
+        initialRehabFunding: 0,
+        initialRate: 0,
+        initialPoints: 0,
+        initialTermMonths: 0,
+        initialInterestOnly: false,
+      };
+    case 'hard_money':
+      return {
+        initialFundingType: type,
+        initialLoanLtvPct: 80,
+        initialRehabFunding: fullReno,
+        initialRate: 12,
+        initialPoints: 2,
+        initialTermMonths: 12,
+        initialInterestOnly: true,
+      };
+    case 'private_money':
+      return {
+        initialFundingType: type,
+        initialLoanLtvPct: 85,
+        initialRehabFunding: fullReno,
+        initialRate: 10,
+        initialPoints: 1,
+        initialTermMonths: 24,
+        initialInterestOnly: true,
+      };
+    case 'bridge':
+      return {
+        initialFundingType: type,
+        initialLoanLtvPct: 75,
+        initialRehabFunding: halfReno,
+        initialRate: 9.5,
+        initialPoints: 1,
+        initialTermMonths: 18,
+        initialInterestOnly: true,
+      };
+    case 'conventional':
+      return {
+        initialFundingType: type,
+        initialLoanLtvPct: 75,
+        initialRehabFunding: 0,
+        initialRate: 7.25,
+        initialPoints: 0,
+        initialTermMonths: 360,
+        initialInterestOnly: false,
+      };
+    case 'dscr':
+      return {
+        initialFundingType: type,
+        initialLoanLtvPct: 75,
+        initialRehabFunding: 0,
+        initialRate: 8,
+        initialPoints: 1,
+        initialTermMonths: 360,
+        initialInterestOnly: false,
+      };
+    case 'heloc':
+      return {
+        initialFundingType: type,
+        initialLoanLtvPct: 85,
+        initialRehabFunding: fullReno,
+        initialRate: 9,
+        initialPoints: 0,
+        initialTermMonths: 120,
+        initialInterestOnly: true,
+      };
+    case 'seller_financing':
+      return {
+        initialFundingType: type,
+        initialLoanLtvPct: 80,
+        initialRehabFunding: 0,
+        initialRate: 6,
+        initialPoints: 0,
+        initialTermMonths: 60,
+        initialInterestOnly: false,
+      };
+    case 'other':
+      return {
+        initialFundingType: type,
+        initialLoanLtvPct: 80,
+        initialRehabFunding: halfReno,
+        initialRate: 8,
+        initialPoints: 0,
+        initialTermMonths: 60,
+        initialInterestOnly: false,
+      };
+  }
+}
+
+function getRefiPreset(strategy: BRRRRRefiStrategy): Partial<BRRRRInputsType> {
+  switch (strategy) {
+    case 'dscr_cash_out':
+      return {
+        refiStrategy: strategy,
+        refiLTV: 75,
+        refiRate: 7.75,
+        refiTermYears: 30,
+        refiClosingCostsPct: 2.5,
+        refiDscrMin: 1.2,
+        refiCashOut: true,
+      };
+    case 'conventional_cash_out':
+      return {
+        refiStrategy: strategy,
+        refiLTV: 70,
+        refiRate: 7.25,
+        refiTermYears: 30,
+        refiClosingCostsPct: 2.5,
+        refiDscrMin: 0,
+        refiCashOut: true,
+      };
+    case 'portfolio_cash_out':
+      return {
+        refiStrategy: strategy,
+        refiLTV: 75,
+        refiRate: 7.5,
+        refiTermYears: 30,
+        refiClosingCostsPct: 2,
+        refiDscrMin: 1.15,
+        refiCashOut: true,
+      };
+    case 'delayed_financing':
+      return {
+        refiStrategy: strategy,
+        refiLTV: 75,
+        refiRate: 7.25,
+        refiTermYears: 30,
+        refiClosingCostsPct: 2,
+        refiDscrMin: 0,
+        refiCashOut: true,
+      };
+    case 'rate_term':
+      return {
+        refiStrategy: strategy,
+        refiLTV: 75,
+        refiRate: 7,
+        refiTermYears: 30,
+        refiClosingCostsPct: 1.5,
+        refiDscrMin: 0,
+        refiCashOut: false,
+      };
+    case 'none':
+      return {
+        refiStrategy: strategy,
+        refiCashOut: false,
+      };
+    case 'other':
+      return {
+        refiStrategy: strategy,
+        refiLTV: 75,
+        refiRate: 8,
+        refiTermYears: 30,
+        refiClosingCostsPct: 2.5,
+        refiDscrMin: 1.2,
+        refiCashOut: true,
+      };
+  }
+}
+
 export default function BRRRRInputs({ values, property, onChange }: Props) {
   const isCashInitial = values.initialFundingType === 'cash';
   const hasRefi = values.refiStrategy !== 'none';
@@ -107,13 +278,19 @@ export default function BRRRRInputs({ values, property, onChange }: Props) {
         <label className="text-xs font-medium text-text-muted mb-1 block">Funding Type</label>
         <select
           value={values.initialFundingType}
-          onChange={(e) => onChange({ initialFundingType: e.target.value as BRRRRInitialFundingType })}
+          onChange={(e) => {
+            const fundingType = e.target.value as BRRRRInitialFundingType;
+            onChange(getInitialFundingPreset(fundingType, values.renovationBudget));
+          }}
           className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
         >
           {INITIAL_FUNDING_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
+        <p className="mt-1 text-[10px] text-text-muted">
+          Selecting a type applies starter terms below; edit any field to override.
+        </p>
       </div>
 
       {!isCashInitial && (
@@ -206,10 +383,7 @@ export default function BRRRRInputs({ values, property, onChange }: Props) {
           value={values.refiStrategy}
           onChange={(e) => {
             const refiStrategy = e.target.value as BRRRRRefiStrategy;
-            onChange({
-              refiStrategy,
-              refiCashOut: refiStrategy !== 'none' && refiStrategy !== 'rate_term' ? values.refiCashOut : false,
-            });
+            onChange(getRefiPreset(refiStrategy));
           }}
           className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
         >
@@ -217,6 +391,9 @@ export default function BRRRRInputs({ values, property, onChange }: Props) {
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
+        <p className="mt-1 text-[10px] text-text-muted">
+          Selecting a strategy applies starter refinance terms; edit any field to override.
+        </p>
       </div>
 
       {hasRefi && (

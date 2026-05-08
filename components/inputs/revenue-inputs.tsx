@@ -11,6 +11,26 @@ interface Props {
   onSeasonalityChange: (multipliers: number[]) => void;
 }
 
+function getPlatformPreset(platform: RevenueInputsType['platform']): Partial<RevenueInputsType> {
+  switch (platform) {
+    case 'airbnb':
+      return {
+        platform,
+        platformFeePct: 3,
+      };
+    case 'airbnb_vrbo':
+      return {
+        platform,
+        platformFeePct: 4,
+      };
+    case 'direct_platforms':
+      return {
+        platform,
+        platformFeePct: 2,
+      };
+  }
+}
+
 export default function RevenueInputs({ values, onChange, onSeasonalityChange }: Props) {
   return (
     <div>
@@ -59,7 +79,7 @@ export default function RevenueInputs({ values, onChange, onSeasonalityChange }:
         <select
           value={values.platform}
           onChange={(e) =>
-            onChange({ platform: e.target.value as RevenueInputsType['platform'] })
+            onChange(getPlatformPreset(e.target.value as RevenueInputsType['platform']))
           }
           className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
         >
@@ -67,6 +87,9 @@ export default function RevenueInputs({ values, onChange, onSeasonalityChange }:
             <option key={p.value} value={p.value}>{p.label}</option>
           ))}
         </select>
+        <p className="mt-1 text-[10px] text-text-muted">
+          Selecting a platform applies a starter fee below; edit it to override.
+        </p>
       </div>
 
       <InputField
