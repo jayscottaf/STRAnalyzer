@@ -18,8 +18,8 @@ export function validateInputs(inputs: DealInputs): ValidationError[] {
     errors.push({ field: 'landValuePct', message: 'Land value must be 0-50%' });
   }
 
-  // Financing (shared, except wholesale)
-  if (strategy !== 'wholesale' && inputs.financing.loanType !== 'cash') {
+  // Financing (shared, except wholesale and BRRRR)
+  if (strategy !== 'wholesale' && strategy !== 'brrrr' && inputs.financing.loanType !== 'cash') {
     if (inputs.financing.downPaymentPct < 0 || inputs.financing.downPaymentPct > 100) {
       errors.push({ field: 'downPaymentPct', message: 'Down payment must be 0-100%' });
     }
@@ -75,8 +75,11 @@ export function validateInputs(inputs: DealInputs): ValidationError[] {
     if (inputs.brrrr.monthlyRent <= 0) {
       errors.push({ field: 'monthlyRent', message: 'Post-refi monthly rent must be greater than 0' });
     }
-    if (inputs.brrrr.refiLTV <= 0 || inputs.brrrr.refiLTV > 80) {
-      errors.push({ field: 'refiLTV', message: 'Refi LTV must be 0-80%' });
+    if (inputs.brrrr.initialFundingType !== 'cash' && (inputs.brrrr.initialLoanLtvPct < 0 || inputs.brrrr.initialLoanLtvPct > 100)) {
+      errors.push({ field: 'initialLoanLtvPct', message: 'Initial LTV/LTC must be 0-100%' });
+    }
+    if (inputs.brrrr.refiStrategy !== 'none' && (inputs.brrrr.refiLTV <= 0 || inputs.brrrr.refiLTV > 85)) {
+      errors.push({ field: 'refiLTV', message: 'Refi LTV must be 0-85%' });
     }
   }
 

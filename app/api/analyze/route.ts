@@ -116,9 +116,9 @@ Tax Strategy Enabled:
 - Selling costs: ${inputs.flip.sellingCostsPct}%`,
     brrrr: `Strategy: BRRRR (Buy, Rehab, Rent, Refinance)
 - ARV: $${inputs.brrrr.arv.toLocaleString()}, Reno: $${inputs.brrrr.renovationBudget.toLocaleString()}
-- Hard money: ${inputs.brrrr.hardMoneyRate}% + ${inputs.brrrr.hardMoneyPoints} points for ${inputs.brrrr.hardMoneyTermMonths} months
+- Initial funding: ${inputs.brrrr.initialFundingType.replaceAll('_', ' ')}${inputs.brrrr.initialFundingType !== 'cash' ? ` at ${inputs.brrrr.initialRate}% + ${inputs.brrrr.initialPoints} points, ${inputs.brrrr.initialLoanLtvPct}% LTV/LTC` : ''}
 - Seasoning period: ${inputs.brrrr.seasoningMonths} months before refi
-- Refi: ${inputs.brrrr.refiLTV}% LTV of ARV at ${inputs.brrrr.refiRate}% for ${inputs.brrrr.refiTermYears}yr
+- Refi: ${inputs.brrrr.refiStrategy.replaceAll('_', ' ')}${inputs.brrrr.refiStrategy !== 'none' ? `, ${inputs.brrrr.refiLTV}% LTV of ARV at ${inputs.brrrr.refiRate}% for ${inputs.brrrr.refiTermYears}yr` : ''}
 - Monthly rent post-refi: $${inputs.brrrr.monthlyRent.toLocaleString()}`,
     wholesale: `Strategy: WHOLESALE (Contract Assignment)
 - ARV: $${inputs.wholesale.arv.toLocaleString()}
@@ -158,7 +158,9 @@ Tax Strategy Enabled:
 - ARV: $${inputs.brrrr.arv.toLocaleString()}
 - Total reno: $${inputs.brrrr.renovationBudget.toLocaleString()}
 - All-in cost: ~$${Math.round(inputs.property.purchasePrice + inputs.brrrr.renovationBudget).toLocaleString()}
-- Refi loan (${inputs.brrrr.refiLTV}% of ARV): $${Math.round(inputs.brrrr.arv * inputs.brrrr.refiLTV / 100).toLocaleString()}
+- Initial funding: ${inputs.brrrr.initialFundingType.replaceAll('_', ' ')}
+- Refi strategy: ${inputs.brrrr.refiStrategy.replaceAll('_', ' ')}
+- Modeled refi loan: $${inputs.brrrr.refiStrategy === 'none' ? '0' : Math.round(inputs.brrrr.arv * inputs.brrrr.refiLTV / 100).toLocaleString()}
 - Monthly rent post-refi: $${inputs.brrrr.monthlyRent.toLocaleString()}
 - Seasoning: ${inputs.brrrr.seasoningMonths} months`,
     wholesale: `Key Metrics (Wholesale):
@@ -179,7 +181,7 @@ Property: ${inputs.property.propertyType} in ${inputs.property.market || 'unspec
 - ${inputs.property.bedrooms}bd/${inputs.property.bathrooms}ba, ${inputs.property.sqft} sqft, built ${inputs.property.yearBuilt}
 - Purchase price: $${inputs.property.purchasePrice.toLocaleString()}
 
-${strategy !== 'wholesale' ? `Financing: ${inputs.financing.loanType === 'cash' ? 'Cash purchase' : `${inputs.financing.downPaymentPct}% down, ${inputs.financing.interestRate}% rate, ${inputs.financing.loanTerm}yr ${inputs.financing.loanType}`}` : ''}
+${strategy !== 'wholesale' && strategy !== 'brrrr' ? `Financing: ${inputs.financing.loanType === 'cash' ? 'Cash purchase' : `${inputs.financing.downPaymentPct}% down, ${inputs.financing.interestRate}% rate, ${inputs.financing.loanTerm}yr ${inputs.financing.loanType}`}` : ''}
 
 ${metricsContext[strategy]}
 

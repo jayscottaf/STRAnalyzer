@@ -95,7 +95,16 @@ export default function BRRRRDashboard({ metrics }: Props) {
       value: formatCurrency(metrics.phase1InterestCost),
       rawValue: metrics.phase1InterestCost,
       formatFn: (v) => formatCurrency(v),
-      subtitle: 'Hard money cost',
+      subtitle: 'Initial funding cost',
+      color: 'neutral',
+    },
+    {
+      key: 'initialLoanAmount',
+      label: 'Initial Loan',
+      value: formatCurrency(metrics.initialLoanAmount),
+      rawValue: metrics.initialLoanAmount,
+      formatFn: (v) => formatCurrency(v),
+      subtitle: `Points: ${formatCurrency(metrics.initialLoanPoints)}`,
       color: 'neutral',
     },
     {

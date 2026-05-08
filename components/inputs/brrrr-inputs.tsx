@@ -1,21 +1,56 @@
 'use client';
 
-import type { BRRRRInputs as BRRRRInputsType } from '@/lib/types';
+import type {
+  BRRRRInitialFundingType,
+  BRRRRInputs as BRRRRInputsType,
+  BRRRRRefiStrategy,
+  PropertyInputs,
+} from '@/lib/types';
 import { formatCurrency, formatPercent } from '@/lib/format';
 import InputField from './input-field';
 
 interface Props {
   values: BRRRRInputsType;
+  property: PropertyInputs;
   onChange: (updates: Partial<BRRRRInputsType>) => void;
 }
 
-export default function BRRRRInputs({ values, onChange }: Props) {
-  const refiAmount = values.arv * (values.refiLTV / 100);
+const INITIAL_FUNDING_OPTIONS: { value: BRRRRInitialFundingType; label: string }[] = [
+  { value: 'cash', label: 'Cash' },
+  { value: 'hard_money', label: 'Hard Money / Fix-and-Flip Loan' },
+  { value: 'private_money', label: 'Private Money' },
+  { value: 'bridge', label: 'Bridge Loan' },
+  { value: 'conventional', label: 'Conventional Investment Loan' },
+  { value: 'dscr', label: 'DSCR Acquisition Loan' },
+  { value: 'heloc', label: 'HELOC / Line of Credit' },
+  { value: 'seller_financing', label: 'Seller Financing' },
+  { value: 'other', label: 'Other / Custom' },
+];
+
+const REFI_OPTIONS: { value: BRRRRRefiStrategy; label: string }[] = [
+  { value: 'dscr_cash_out', label: 'DSCR Cash-Out Refinance' },
+  { value: 'conventional_cash_out', label: 'Conventional Investment Cash-Out Refinance' },
+  { value: 'portfolio_cash_out', label: 'Portfolio / Local Bank Refinance' },
+  { value: 'delayed_financing', label: 'Delayed Financing / Cash Recapture' },
+  { value: 'rate_term', label: 'Rate-and-Term Refinance' },
+  { value: 'none', label: 'No Refinance' },
+  { value: 'other', label: 'Other / Custom' },
+];
+
+export default function BRRRRInputs({ values, property, onChange }: Props) {
+  const isCashInitial = values.initialFundingType === 'cash';
+  const hasRefi = values.refiStrategy !== 'none';
+  const canCashOut = hasRefi && values.refiStrategy !== 'rate_term';
+  const initialLoanBasis = property.purchasePrice + values.initialRehabFunding;
+  const estimatedInitialLoan = isCashInitial
+    ? 0
+    : (values.initialLoanLtvPct / 100) * initialLoanBasis;
+  const refiAmount = hasRefi ? values.arv * (values.refiLTV / 100) : 0;
 
   return (
     <div>
       <div className="text-[10px] font-semibold text-accent-blue uppercase tracking-wider mb-2">
-        Phase 1: Buy &amp; Rehab
+        Deal &amp; Rehab
       </div>
 
       <InputField
@@ -30,7 +65,13 @@ export default function BRRRRInputs({ values, onChange }: Props) {
       <InputField
         label="Renovation Budget"
         value={values.renovationBudget}
-        onChange={(v) => onChange({ renovationBudget: v as number })}
+        onChange={(v) => {
+          const nextReno = v as number;
+          onChange({
+            renovationBudget: nextReno,
+            initialRehabFunding: Math.min(values.initialRehabFunding, nextReno),
+          });
+        }}
         prefix="$"
         min={0}
         step={1000}
@@ -54,96 +95,206 @@ export default function BRRRRInputs({ values, onChange }: Props) {
           min={0}
           max={24}
           step={1}
-          tooltip="Months after reno before refi. Most lenders require 6-12."
+          tooltip="Months after rehab before the refinance. Lender requirements vary by loan type."
         />
       </div>
 
-      <InputField
-        label="Hard Money Rate"
-        value={values.hardMoneyRate}
-        onChange={(v) => onChange({ hardMoneyRate: v as number })}
-        suffix="%"
-        min={0}
-        max={25}
-        step={0.5}
-      />
-
-      <div className="grid grid-cols-2 gap-2">
-        <InputField
-          label="Points"
-          value={values.hardMoneyPoints}
-          onChange={(v) => onChange({ hardMoneyPoints: v as number })}
-          min={0}
-          max={10}
-          step={0.5}
-        />
-        <InputField
-          label="HM Term"
-          value={values.hardMoneyTermMonths}
-          onChange={(v) => onChange({ hardMoneyTermMonths: v as number })}
-          suffix="mo"
-          min={3}
-          max={36}
-          step={1}
-        />
-      </div>
-
-      {/* Phase 2: Refi */}
       <div className="text-[10px] font-semibold text-accent-blue uppercase tracking-wider mt-4 mb-2">
-        Phase 2: Refinance
+        Initial Funding
       </div>
-
-      <InputField
-        label="Refi LTV"
-        value={values.refiLTV}
-        onChange={(v) => onChange({ refiLTV: v as number })}
-        suffix="%"
-        min={0}
-        max={80}
-        step={1}
-        tooltip="Cash-out refi LTV on ARV. Typical 70-75%."
-      />
-
-      <div className="text-[10px] text-text-muted -mt-2 mb-3">
-        New loan: {formatCurrency(refiAmount)} ({formatPercent(values.refiLTV)} of ARV)
-      </div>
-
-      <InputField
-        label="Refi Rate"
-        value={values.refiRate}
-        onChange={(v) => onChange({ refiRate: v as number })}
-        suffix="%"
-        min={0}
-        max={15}
-        step={0.125}
-      />
 
       <div className="mb-3">
-        <label className="text-xs font-medium text-text-muted mb-1 block">Refi Term</label>
+        <label className="text-xs font-medium text-text-muted mb-1 block">Funding Type</label>
         <select
-          value={values.refiTermYears}
-          onChange={(e) => onChange({ refiTermYears: parseInt(e.target.value) as 15 | 20 | 30 })}
+          value={values.initialFundingType}
+          onChange={(e) => onChange({ initialFundingType: e.target.value as BRRRRInitialFundingType })}
           className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
         >
-          <option value={15}>15 years</option>
-          <option value={20}>20 years</option>
-          <option value={30}>30 years</option>
+          {INITIAL_FUNDING_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
         </select>
       </div>
 
+      {!isCashInitial && (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <InputField
+              label="Initial LTV / LTC"
+              value={values.initialLoanLtvPct}
+              onChange={(v) => onChange({ initialLoanLtvPct: v as number })}
+              suffix="%"
+              min={0}
+              max={100}
+              step={1}
+              tooltip="Loan proceeds as a percent of eligible purchase/rehab costs. Actual lender rules vary."
+            />
+            <InputField
+              label="Rehab Financed"
+              value={values.initialRehabFunding}
+              onChange={(v) => onChange({ initialRehabFunding: Math.min(v as number, values.renovationBudget) })}
+              prefix="$"
+              min={0}
+              max={values.renovationBudget}
+              step={1000}
+            />
+          </div>
+
+          <div className="text-[10px] text-text-muted -mt-2 mb-3">
+            Est. initial loan: {formatCurrency(estimatedInitialLoan)}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <InputField
+              label="Initial Rate"
+              value={values.initialRate}
+              onChange={(v) => onChange({ initialRate: v as number })}
+              suffix="%"
+              min={0}
+              max={25}
+              step={0.125}
+            />
+            <InputField
+              label="Points"
+              value={values.initialPoints}
+              onChange={(v) => onChange({ initialPoints: v as number })}
+              min={0}
+              max={10}
+              step={0.5}
+            />
+          </div>
+
+          <InputField
+            label="Initial Term"
+            value={values.initialTermMonths}
+            onChange={(v) => onChange({ initialTermMonths: v as number })}
+            suffix="mo"
+            min={1}
+            max={360}
+            step={1}
+          />
+
+          <label className="mb-3 flex items-center gap-2 text-xs text-text-muted">
+            <input
+              type="checkbox"
+              checked={values.initialInterestOnly}
+              onChange={(e) => onChange({ initialInterestOnly: e.target.checked })}
+              className="h-4 w-4 rounded border-border-default bg-bg-base"
+            />
+            Interest-only during buy/rehab phase
+          </label>
+        </>
+      )}
+
       <InputField
-        label="Refi Closing Costs"
-        value={values.refiClosingCostsPct}
-        onChange={(v) => onChange({ refiClosingCostsPct: v as number })}
+        label="Purchase Closing Costs"
+        value={values.purchaseClosingCostsPct}
+        onChange={(v) => onChange({ purchaseClosingCostsPct: v as number })}
         suffix="%"
         min={0}
-        max={5}
+        max={10}
         step={0.25}
       />
 
-      {/* Phase 3: Rent */}
       <div className="text-[10px] font-semibold text-accent-blue uppercase tracking-wider mt-4 mb-2">
-        Phase 3: Rent
+        Refinance Strategy
+      </div>
+
+      <div className="mb-3">
+        <label className="text-xs font-medium text-text-muted mb-1 block">Refinance Type</label>
+        <select
+          value={values.refiStrategy}
+          onChange={(e) => {
+            const refiStrategy = e.target.value as BRRRRRefiStrategy;
+            onChange({
+              refiStrategy,
+              refiCashOut: refiStrategy !== 'none' && refiStrategy !== 'rate_term' ? values.refiCashOut : false,
+            });
+          }}
+          className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
+        >
+          {REFI_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {hasRefi && (
+        <>
+          <InputField
+            label="Refi LTV"
+            value={values.refiLTV}
+            onChange={(v) => onChange({ refiLTV: v as number })}
+            suffix="%"
+            min={0}
+            max={85}
+            step={1}
+            tooltip="Modeled refinance LTV on ARV. Exact max LTV depends on loan type and lender."
+          />
+
+          <div className="text-[10px] text-text-muted -mt-2 mb-3">
+            New loan: {formatCurrency(refiAmount)} ({formatPercent(values.refiLTV)} of ARV)
+          </div>
+
+          <InputField
+            label="Refi Rate"
+            value={values.refiRate}
+            onChange={(v) => onChange({ refiRate: v as number })}
+            suffix="%"
+            min={0}
+            max={15}
+            step={0.125}
+          />
+
+          <div className="mb-3">
+            <label className="text-xs font-medium text-text-muted mb-1 block">Refi Term</label>
+            <select
+              value={values.refiTermYears}
+              onChange={(e) => onChange({ refiTermYears: parseInt(e.target.value) as 15 | 20 | 30 })}
+              className="w-full h-10 sm:h-8 bg-bg-base border border-border-default rounded-md text-sm sm:text-xs text-text-foreground px-2.5 outline-none focus:border-accent-blue"
+            >
+              <option value={15}>15 years</option>
+              <option value={20}>20 years</option>
+              <option value={30}>30 years</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <InputField
+              label="Refi Closing Costs"
+              value={values.refiClosingCostsPct}
+              onChange={(v) => onChange({ refiClosingCostsPct: v as number })}
+              suffix="%"
+              min={0}
+              max={8}
+              step={0.25}
+            />
+            <InputField
+              label="Min DSCR"
+              value={values.refiDscrMin}
+              onChange={(v) => onChange({ refiDscrMin: v as number })}
+              min={0}
+              max={2}
+              step={0.05}
+            />
+          </div>
+
+          {canCashOut && (
+            <label className="mb-3 flex items-center gap-2 text-xs text-text-muted">
+              <input
+                type="checkbox"
+                checked={values.refiCashOut}
+                onChange={(e) => onChange({ refiCashOut: e.target.checked })}
+                className="h-4 w-4 rounded border-border-default bg-bg-base"
+              />
+              Model cash-out proceeds after paying off initial funding
+            </label>
+          )}
+        </>
+      )}
+
+      <div className="text-[10px] font-semibold text-accent-blue uppercase tracking-wider mt-4 mb-2">
+        Rental Operation
       </div>
 
       <InputField

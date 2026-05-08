@@ -96,20 +96,48 @@ export interface FlipInputs {
   contingencyPct: number;
 }
 
+export type BRRRRInitialFundingType =
+  | 'cash'
+  | 'hard_money'
+  | 'private_money'
+  | 'bridge'
+  | 'conventional'
+  | 'dscr'
+  | 'heloc'
+  | 'seller_financing'
+  | 'other';
+
+export type BRRRRRefiStrategy =
+  | 'dscr_cash_out'
+  | 'conventional_cash_out'
+  | 'portfolio_cash_out'
+  | 'delayed_financing'
+  | 'rate_term'
+  | 'none'
+  | 'other';
+
 export interface BRRRRInputs {
   // Acquisition + reno (flip-like)
   arv: number;
   renovationBudget: number;
   renoTimelineMonths: number;
-  hardMoneyRate: number;
-  hardMoneyPoints: number;
-  hardMoneyTermMonths: number;
+  initialFundingType: BRRRRInitialFundingType;
+  initialLoanLtvPct: number;
+  initialRehabFunding: number;
+  initialRate: number;
+  initialPoints: number;
+  initialTermMonths: number;
+  initialInterestOnly: boolean;
+  purchaseClosingCostsPct: number;
   seasoningMonths: number;
   // Refi terms
+  refiStrategy: BRRRRRefiStrategy;
   refiLTV: number;
   refiRate: number;
   refiTermYears: 15 | 20 | 30;
   refiClosingCostsPct: number;
+  refiDscrMin: number;
+  refiCashOut: boolean;
   // Rental (LTR-like)
   monthlyRent: number;
   vacancyRatePct: number;
@@ -350,12 +378,12 @@ export interface BRRRRMetrics {
   arv: number;
   renovationBudget: number;
   initialCashInvested: number;
-  hardMoneyLoan: number;
-  hardMoneyPoints: number;
+  initialLoanAmount: number;
+  initialLoanPoints: number;
   phase1InterestCost: number;
   // Refi
   refiLoanAmount: number;        // ARV * refiLTV
-  refiCashOut: number;           // refi proceeds minus hard money payoff + reno
+  refiCashOut: number;           // refi proceeds minus initial funding payoff
   cashLeftInDeal: number;        // initial - refi cash out
   allInCost: number;             // purchase + reno + interest + points + closing
   refiMonthlyPayment: number;

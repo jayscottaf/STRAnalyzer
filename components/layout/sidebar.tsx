@@ -28,7 +28,7 @@ const STRATEGY_OPTIONS: { value: Strategy; label: string; icon: string }[] = [
 
 export default function Sidebar({ inputs, dispatch }: Props) {
   const strategy = inputs.activeStrategy ?? 'str';
-  const needsFinancing = strategy !== 'wholesale';
+  const needsFinancing = strategy !== 'wholesale' && strategy !== 'brrrr';
   const needsExpenses = strategy === 'str' || strategy === 'ltr' || strategy === 'brrrr';
   const needsTax = strategy === 'str' || strategy === 'ltr' || strategy === 'brrrr';
 
@@ -104,6 +104,7 @@ export default function Sidebar({ inputs, dispatch }: Props) {
         <SidebarSection title="BRRRR Plan" defaultOpen>
           <BRRRRInputs
             values={inputs.brrrr}
+            property={inputs.property}
             onChange={(updates) => dispatch({ type: 'UPDATE_BRRRR', payload: updates })}
           />
         </SidebarSection>
